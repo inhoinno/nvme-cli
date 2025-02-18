@@ -8,8 +8,9 @@ nvme-fdp-usage - Get Reclaim Unit Handle Usage
 SYNOPSIS
 --------
 [verse]
-'nvme fdp usage' <device> [--endgrp-id=<NUM> | -e <NUM>] [--raw-binary | -b]
-			[--output-format=<fmt> | -o <fmt>]
+'nvme fdp usage' <device> [--endgrp-id=<NUM> | -e <NUM>]
+			  [--raw-binary | -b]
+			  [--output-format=<FMT> | -o <FMT>]
 
 DESCRIPTION
 -----------
@@ -27,8 +28,8 @@ OPTIONS
 --raw-binary::
 	Print the raw buffer to the standard output stream.
 
--o <fmt>::
---output-format=<fmt>::
+-o <format>::
+--output-format=<format>::
 	Set the reporting format to 'normal', 'json', or 'binary'. Only one
 	output format can be used at a time.
 

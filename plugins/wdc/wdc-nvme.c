@@ -36,7 +36,6 @@
 #include "libnvme.h"
 #include "plugin.h"
 #include "linux/types.h"
-#include "util/cleanup.h"
 #include "util/types.h"
 #include "nvme-print.h"
 
@@ -81,14 +80,12 @@
 #define WDC_NVME_SN655_DEV_ID				0x2722
 #define WDC_NVME_SN860_DEV_ID				0x2730
 #define WDC_NVME_SN660_DEV_ID				0x2704
-#define WDC_NVME_SN560_DEV_ID_1				0x2712
-#define WDC_NVME_SN560_DEV_ID_2				0x2713
-#define WDC_NVME_SN560_DEV_ID_3				0x2714
-#define WDC_NVME_SN861_DEV_ID				0x2750
-#define WDC_NVME_SN861_DEV_ID_1				0x2751
 
 /* This id's are no longer supported, delete ?? */
 #define WDC_NVME_SN550_DEV_ID				0x2708
+#define WDC_NVME_SN560_DEV_ID_1				0x2712
+#define WDC_NVME_SN560_DEV_ID_2				0x2713
+#define WDC_NVME_SN560_DEV_ID_3				0x2714
 
 #define WDC_NVME_SXSLCL_DEV_ID				0x2001
 #define WDC_NVME_SN520_DEV_ID				0x5003
@@ -150,8 +147,6 @@
 #define WDC_DRIVE_CAP_OCP_C4_LOG_PAGE			0x0000004000000000
 #define WDC_DRIVE_CAP_OCP_C5_LOG_PAGE			0x0000008000000000
 #define WDC_DRIVE_CAP_DEVICE_WAF			0x0000010000000000
-#define WDC_DRIVE_CAP_SET_LATENCY_MONITOR		0x0000020000000000
-
 #define WDC_DRIVE_CAP_SMART_LOG_MASK			(WDC_DRIVE_CAP_C0_LOG_PAGE | \
 							 WDC_DRIVE_CAP_C1_LOG_PAGE | \
 							 WDC_DRIVE_CAP_CA_LOG_PAGE | \
@@ -167,7 +162,6 @@
 							 WDC_DRIVE_CAP_DUI | \
 							 WDC_DRIVE_CAP_DUI_DATA | \
 							 WDC_SN730B_CAP_VUC_LOG)
-
 /* SN730 Get Log Capabilities */
 #define SN730_NVME_GET_LOG_OPCODE			0xc2
 #define SN730_GET_FULL_LOG_LENGTH			0x00080009
@@ -307,8 +301,8 @@
 #define WDC_NVME_GET_STAT_PERF_INTERVAL_LIFETIME	0x0F
 
 /* C2 Log Page */
-#define WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID		0xC2
-#define WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID_C8		0xC8
+#define WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE		0xC2
+#define WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE_C8	0xC8
 #define WDC_C2_LOG_BUF_LEN				0x1000
 #define WDC_C2_LOG_PAGES_SUPPORTED_ID			0x08
 #define WDC_C2_CUSTOMER_ID_ID				0x15
@@ -373,12 +367,12 @@ static __u8 wdc_lat_mon_guid[WDC_C3_GUID_LENGTH] = {
 #define NVME_LOG_PERSISTENT_EVENT			0x0D
 #define WDC_LOG_ID_C0					0xC0
 #define WDC_LOG_ID_C1					0xC1
-#define WDC_LOG_ID_C2					WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID
+#define WDC_LOG_ID_C2					WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE
 #define WDC_LOG_ID_C3					0xC3
 #define WDC_LOG_ID_C4					0xC4
 #define WDC_LOG_ID_C5					0xC5
 #define WDC_LOG_ID_C6					0xC6
-#define WDC_LOG_ID_C8					WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID_C8
+#define WDC_LOG_ID_C8					WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE_C8
 #define WDC_LOG_ID_CA					WDC_NVME_GET_DEVICE_INFO_LOG_OPCODE
 #define WDC_LOG_ID_CB					WDC_NVME_GET_FW_ACT_HISTORY_LOG_ID
 #define WDC_LOG_ID_D0					WDC_NVME_GET_VU_SMART_LOG_OPCODE
@@ -452,12 +446,6 @@ static __u8 wdc_lat_mon_guid[WDC_C3_GUID_LENGTH] = {
 #define WDC_ENC_CRASH_DUMP_ID				0xE4
 #define WDC_ENC_LOG_DUMP_ID				0xE2
 
-/* OCP Log Page Directory Data Structure */
-#define BYTE_TO_BIT(byte)				((byte) * 8)
-
-/* Set latency monitor feature */
-#define NVME_FEAT_OCP_LATENCY_MONITOR			0xC5
-
 enum _NVME_FEATURES_SELECT {
 	FS_CURRENT                      = 0,
 	FS_DEFAULT                      = 1,
@@ -483,27 +471,6 @@ enum NVME_FEATURE_IDENTIFIERS {
 	FID_HOST_IDENTIFIER                             = 0x81,
 	FID_RESERVATION_NOTIFICATION_MASK               = 0x82,
 	FID_RESERVATION_PERSISTENCE                     = 0x83
-};
-
-/*  WDC UUID value */
-const uint8_t WDC_UUID[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x2d, 0xb9, 0x8c, 0x52, 0x0c, 0x4c,
-	0x5a, 0x15, 0xab, 0xe6, 0x33, 0x29, 0x9a, 0x70, 0xdf, 0xd0
-};
-
-/* WDC_UUID value for SN640_3 devices */
-const uint8_t WDC_UUID_SN640_3[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x11, 0x11, 0x11, 0x11, 0x11,
-	0x11, 0x11, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22, 0x22
-};
-
-/* UUID field with value of 0 indicates end of UUID List*/
-const uint8_t UUID_END[] = {
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
 };
 
 enum WDC_DRIVE_ESSENTIAL_TYPE {
@@ -689,67 +656,6 @@ enum {
 	SCAO_LPG                = 496,	/* Log page GUID */
 };
 
-struct ocp_bad_nand_block_count {
-	__u64 raw : 48;
-	__u16 normalized : 16;
-};
-
-struct ocp_e2e_correction_count {
-	__u32 detected;
-	__u32 corrected;
-};
-
-struct ocp_user_data_erase_count {
-	__u32 maximum;
-	__u32 minimum;
-};
-
-struct ocp_thermal_status {
-	__u8 num_events;
-	__u8 current_status;
-};
-
-struct __packed ocp_dssd_specific_ver {
-	__u8 errata_ver;
-	__u16 point_ver;
-	__u16 minor_ver;
-	__u8 major_ver;
-};
-
-struct ocp_cloud_smart_log {
-	__u8 physical_media_units_written[16];
-	__u8 physical_media_units_read[16];
-	struct ocp_bad_nand_block_count bad_user_nand_blocks;
-	struct ocp_bad_nand_block_count bad_system_nand_blocks;
-	__u64 xor_recovery_count;
-	__u64 uncorrectable_read_error_count;
-	__u64 soft_ecc_error_count;
-	struct ocp_e2e_correction_count e2e_correction_counts;
-	__u8 system_data_percent_used;
-	__u64 refresh_counts : 56;
-	struct ocp_user_data_erase_count user_data_erase_counts;
-	struct ocp_thermal_status thermal_status;
-	struct ocp_dssd_specific_ver dssd_specific_ver;
-	__u64 pcie_correctable_error_count;
-	__u32 incomplete_shutdowns;
-	__u8 rsvd116[4];
-	__u8 percent_free_blocks;
-	__u8 rsvd121[7];
-	__u16 capacitor_health;
-	__u8 nvme_errata_ver;
-	__u8 rsvd131[5];
-	__u64 unaligned_io;
-	__u64 security_version_number;
-	__u64 total_nuse;
-	__u8 plp_start_count[16];
-	__u8 endurance_estimate[16];
-	__u64 pcie_link_retraining_cnt;
-	__u64 power_state_change_cnt;
-	__u8 rsvd208[286];
-	__u16 log_page_version;
-	__u8 log_page_guid[16];
-};
-
 static __u8 scao_guid[WDC_C0_GUID_LENGTH] = {
 	0xC5, 0xAF, 0x10, 0x28, 0xEA, 0xBF, 0xF2, 0xA4,
 	0x9C, 0x4F, 0x6F, 0x7C, 0xC9, 0x14, 0xD5, 0xAF
@@ -885,46 +791,6 @@ struct WDC_NVME_DE_VU_LOGPAGES {
 static struct NVME_VU_DE_LOGPAGE_LIST deVULogPagesList[] = {
 	{ NVME_DE_LOGPAGE_E3, 0xE3, 1072, "0xe3"},
 	{ NVME_DE_LOGPAGE_C0, 0xC0, 512, "0xc0"}
-};
-
-enum {
-	WDC_NVME_ADMIN_VUC_OPCODE_D2 = 0xD2,
-	WDC_VUC_SUBOPCODE_VS_DRIVE_INFO_D2 = 0x0000010A,
-	WDC_VUC_SUBOPCODE_LOG_PAGE_DIR_D2 = 0x00000105,
-};
-
-enum {
-	NVME_LOG_NS_BASE			= 0x80,
-	NVME_LOG_VS_BASE			= 0xC0,
-};
-
-/*drive_info struct*/
-struct ocp_drive_info {
-	__u32 hw_revision;
-	__u32 ftl_unit_size;
-};
-
-/*get log page directory struct*/
-struct log_page_directory {
-	__u64 supported_lid_bitmap;
-	__u64 rsvd;
-	__u64 supported_ns_lid_bitmap;
-	__u64 supported_vs_lid_bitmap;
-};
-
-/*set latency monitor feature */
-struct __packed feature_latency_monitor {
-	__u16 active_bucket_timer_threshold;
-	__u8  active_threshold_a;
-	__u8  active_threshold_b;
-	__u8  active_threshold_c;
-	__u8  active_threshold_d;
-	__u16 active_latency_config;
-	__u8  active_latency_minimum_window;
-	__u16 debug_log_trigger_enable;
-	__u8  discard_debug_log;
-	__u8  latency_monitor_feature_enable;
-	__u8  reserved[4083];
 };
 
 static int wdc_get_serial_name(struct nvme_dev *dev, char *file, size_t len, const char *suffix);
@@ -1362,7 +1228,7 @@ struct __packed wdc_fw_act_history_log_format_c2 {
 struct __packed wdc_ocp_C4_dev_cap_log {
 	__le16  num_pcie_ports;                        /* 0000 - Number of PCI Express Ports         */
 	__le16  oob_mgmt_support;                      /* 0002 - OOB Management Interfaces Supported */
-	__le16  wrt_zeros_support;                     /* 0004 - Write Zeros Command Support        */
+	__le16  wrt_zeros_support;                     /* 0004 - Write Zeros Commmand Support        */
 	__le16  sanitize_support;                      /* 0006 - Sanitize Command Support            */
 	__le16  dsm_support;                           /* 0008 - Dataset Management Command Support  */
 	__le16  wrt_uncor_support;                     /* 0010 - Write Uncorrectable Command Support */
@@ -1402,21 +1268,6 @@ static __u8 wdc_ocp_c5_guid[WDC_OCP_C5_GUID_LENGTH]    = { 0x2F, 0x72, 0x9C, 0x0
 #define WDC_REASON_ID_ENTRY_LEN                128
 #define WDC_REASON_ID_PATH_NAME                "/usr/local/nvmecli"
 
-const char *log_page_name[256] = {
-	[NVME_LOG_LID_ERROR]		= "Error Information",
-	[NVME_LOG_LID_SMART]		= "SMART / Health Information",
-	[NVME_LOG_LID_FW_SLOT]		= "Firmware Slot Information",
-	[NVME_LOG_LID_CHANGED_NS]	= "Changed Namespace List",
-	[NVME_LOG_LID_CMD_EFFECTS]	= "Command Supported and Effects",
-	[NVME_LOG_LID_TELEMETRY_HOST]	= "Telemetry Host-Initiated",
-	[NVME_LOG_LID_TELEMETRY_CTRL]	= "Telemetry Controller-Initiated",
-	[NVME_LOG_LID_SANITIZE]		= "Sanitize Status",
-	[WDC_LOG_ID_C0]			= "Extended SMART Information",
-	[WDC_LOG_ID_C2]			= "Firmware Activation History",
-	[WDC_LOG_ID_C3]			= "Latency Monitor",
-	[WDC_LOG_ID_C4]			= "Device Capabilities",
-	[WDC_LOG_ID_C5]			= "Unsupported Requirements",
-};
 
 static double safe_div_fp(double numerator, double denominator)
 {
@@ -1514,60 +1365,6 @@ static int wdc_get_vendor_id(struct nvme_dev *dev, uint32_t *vendor_id)
 	*vendor_id = (uint32_t) ctrl.vid;
 
 	return ret;
-}
-
-static bool wdc_is_sn861(__u32 device_id)
-{
-	if ((device_id == WDC_NVME_SN861_DEV_ID) ||
-	    (device_id == WDC_NVME_SN861_DEV_ID_1))
-		return true;
-	else
-		return false;
-}
-
-
-static bool wdc_is_sn640(__u32 device_id)
-{
-	if ((device_id == WDC_NVME_SN640_DEV_ID) ||
-	    (device_id == WDC_NVME_SN640_DEV_ID_1) ||
-	    (device_id == WDC_NVME_SN640_DEV_ID_2))
-		return true;
-	else
-		return false;
-}
-
-static bool wdc_is_sn640_3(__u32 device_id)
-{
-	if (device_id == WDC_NVME_SN640_DEV_ID_3)
-		return true;
-	else
-		return false;
-}
-
-static bool wdc_is_sn650_u2(__u32 device_id)
-{
-	if (device_id == WDC_NVME_SN650_DEV_ID_3)
-		return true;
-	else
-		return false;
-}
-
-static bool wdc_is_sn650_e1l(__u32 device_id)
-{
-	if (device_id == WDC_NVME_SN650_DEV_ID_4)
-		return true;
-	else
-		return false;
-}
-
-static bool needs_c2_log_page_check(__u32 device_id)
-{
-	if ((wdc_is_sn640(device_id)) ||
-	    (wdc_is_sn650_u2(device_id)) ||
-	    (wdc_is_sn650_e1l(device_id)))
-		return true;
-	else
-		return false;
 }
 
 static bool wdc_check_power_of_2(int num)
@@ -1751,7 +1548,7 @@ static __u64 wdc_get_drive_capabilities(nvme_root_t r, struct nvme_dev *dev)
 							      WDC_DEV_CAP_LOG_ID))
 				capabilities |= WDC_DRIVE_CAP_OCP_C4_LOG_PAGE;
 
-			/* verify the 0xC5 (OCP Unsupported Requirements) log page is supported */
+			/* verify the 0xC5 (OCP Unsupported Requirments) log page is supported */
 			if (wdc_nvme_check_supported_log_page(r, dev,
 							      WDC_UNSUPPORTED_REQS_LOG_ID))
 				capabilities |= WDC_DRIVE_CAP_OCP_C5_LOG_PAGE;
@@ -1840,7 +1637,7 @@ static __u64 wdc_get_drive_capabilities(nvme_root_t r, struct nvme_dev *dev)
 			if (wdc_nvme_check_supported_log_page(r, dev, WDC_DEV_CAP_LOG_ID))
 				capabilities |= WDC_DRIVE_CAP_OCP_C4_LOG_PAGE;
 
-			/* verify the 0xC5 (OCP Unsupported Requirements) log page is supported */
+			/* verify the 0xC5 (OCP Unsupported Requirments) log page is supported */
 			if (wdc_nvme_check_supported_log_page(r, dev, WDC_UNSUPPORTED_REQS_LOG_ID))
 				capabilities |= WDC_DRIVE_CAP_OCP_C5_LOG_PAGE;
 
@@ -1868,23 +1665,6 @@ static __u64 wdc_get_drive_capabilities(nvme_root_t r, struct nvme_dev *dev)
 				capabilities |= (WDC_DRIVE_CAP_CLEAR_FW_ACT_HISTORY |
 						 WDC_DRIVE_CAP_CLEAR_PCIE);
 
-			break;
-		case WDC_NVME_SN861_DEV_ID:
-			fallthrough;
-		case WDC_NVME_SN861_DEV_ID_1:
-			capabilities |= (WDC_DRIVE_CAP_C0_LOG_PAGE |
-				WDC_DRIVE_CAP_C3_LOG_PAGE |
-				WDC_DRIVE_CAP_CA_LOG_PAGE |
-				WDC_DRIVE_CAP_OCP_C4_LOG_PAGE |
-				WDC_DRIVE_CAP_OCP_C5_LOG_PAGE |
-				WDC_DRIVE_CAP_INTERNAL_LOG |
-				WDC_DRIVE_CAP_FW_ACTIVATE_HISTORY_C2 |
-				WDC_DRIVE_CAP_VU_FID_CLEAR_PCIE |
-				WDC_DRIVE_CAP_VU_FID_CLEAR_FW_ACT_HISTORY |
-				WDC_DRIVE_CAP_INFO |
-				WDC_DRIVE_CAP_CLOUD_SSD_VERSION |
-				WDC_DRIVE_CAP_LOG_PAGE_DIR |
-				WDC_DRIVE_CAP_SET_LATENCY_MONITOR);
 			break;
 		default:
 			capabilities = 0;
@@ -2178,7 +1958,7 @@ bool wdc_get_dev_mng_log_entry(__u32 log_length, __u32 entry_id,
 			remaining_len = 0;
 			valid_log = false;
 
-			/* The structure is invalid, so any match that was found is invalid. */
+			/* The struture is invalid, so any match that was found is invalid. */
 			*p_p_found_log_entry = NULL;
 		} else {
 			/* Structure must have at least one valid entry to be considered valid */
@@ -2202,25 +1982,33 @@ bool wdc_get_dev_mng_log_entry(__u32 log_length, __u32 entry_id,
 	return valid_log;
 }
 
-static bool get_dev_mgmt_log_page_lid_data(struct nvme_dev *dev,
-	void **cbs_data,
-	__u8 lid,
-	__u8 log_id,
-	__u8 uuid_ix)
+static bool get_dev_mgment_cbs_data(nvme_root_t r, struct nvme_dev *dev,
+				__u8 log_id, void **cbs_data)
 {
+	int ret = -1;
 	void *data;
 	struct wdc_c2_log_page_header *hdr_ptr;
 	struct wdc_c2_log_subpage_header *sph;
 	__u32 length = 0;
-	int ret = 0;
 	bool found = false;
+	__u8 uuid_ix = 1;
+	__u8 lid = 0;
+	*cbs_data = NULL;
+	__u32 device_id, read_vendor_id;
+
+	ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
+	if (device_id == WDC_NVME_ZN350_DEV_ID || device_id == WDC_NVME_ZN350_DEV_ID_1) {
+		lid = WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE_C8;
+		uuid_ix = 0;
+	} else {
+		lid = WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE;
+	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * WDC_C2_LOG_BUF_LEN);
 	if (!data) {
 		fprintf(stderr, "ERROR: WDC: malloc: %s\n", strerror(errno));
 		return false;
 	}
-
 	memset(data, 0, sizeof(__u8) * WDC_C2_LOG_BUF_LEN);
 
 	/* get the log page length */
@@ -2243,9 +2031,7 @@ static bool get_dev_mgmt_log_page_lid_data(struct nvme_dev *dev,
 	};
 	ret = nvme_get_log(&args_len);
 	if (ret) {
-		fprintf(stderr,
-			"ERROR: WDC: Unable to get 0x%x Log Page length with uuid %d, ret = 0x%x\n",
-			lid, uuid_ix, ret);
+		fprintf(stderr, "ERROR: WDC: Unable to get 0x%x Log Page length, ret = 0x%x\n", lid, ret);
 		goto end;
 	}
 
@@ -2258,12 +2044,54 @@ static bool get_dev_mgmt_log_page_lid_data(struct nvme_dev *dev,
 		data = calloc(length, sizeof(__u8));
 		if (!data) {
 			fprintf(stderr, "ERROR: WDC: malloc: %s\n", strerror(errno));
+			return false;
+		}
+	}
+
+	/* get the log page data */
+	struct nvme_get_log_args args_data = {
+		.args_size	= sizeof(args_data),
+		.fd		= dev_fd(dev),
+		.lid		= lid,
+		.nsid		= 0xFFFFFFFF,
+		.lpo		= 0,
+		.lsp		= NVME_LOG_LSP_NONE,
+		.lsi		= 0,
+		.rae		= false,
+		.uuidx		= uuid_ix,
+		.csi		= NVME_CSI_NVM,
+		.ot		= false,
+		.len		= length,
+		.log		= data,
+		.timeout	= NVME_DEFAULT_IOCTL_TIMEOUT,
+		.result		= NULL,
+	};
+	ret = nvme_get_log(&args_data);
+
+	if (ret) {
+		fprintf(stderr, "ERROR: WDC: Unable to read 0x%x Log Page data, ret = 0x%x\n", lid, ret);
+		goto end;
+	}
+
+	/* Check the log data to see if the WD version of log page ID's is found */
+
+	length = sizeof(struct wdc_c2_log_page_header);
+	hdr_ptr = (struct wdc_c2_log_page_header *)data;
+	sph = (struct wdc_c2_log_subpage_header *)(data + length);
+	found = wdc_get_dev_mng_log_entry(le32_to_cpu(hdr_ptr->length), log_id, hdr_ptr, &sph);
+	if (found) {
+		*cbs_data = calloc(le32_to_cpu(sph->length), sizeof(__u8));
+		if (!*cbs_data) {
+			fprintf(stderr, "ERROR: WDC: calloc: %s\n", strerror(errno));
 			goto end;
 		}
-
-		/* get the log page data with the increased length */
-		struct nvme_get_log_args args_data = {
-			.args_size	= sizeof(args_data),
+		memcpy((void *)*cbs_data, (void *)&sph->data, le32_to_cpu(sph->length));
+	} else {
+		/* not found with uuid = 1 try with uuid = 0 */
+		uuid_ix = 0;
+		/* get the log page data */
+		struct nvme_get_log_args args = {
+			.args_size	= sizeof(args),
 			.fd		= dev_fd(dev),
 			.lid		= lid,
 			.nsid		= 0xFFFFFFFF,
@@ -2274,115 +2102,31 @@ static bool get_dev_mgmt_log_page_lid_data(struct nvme_dev *dev,
 			.uuidx		= uuid_ix,
 			.csi		= NVME_CSI_NVM,
 			.ot		= false,
-			.len		= length,
+			.len		= le32_to_cpu(hdr_ptr->length),
 			.log		= data,
 			.timeout	= NVME_DEFAULT_IOCTL_TIMEOUT,
 			.result		= NULL,
 		};
-		ret = nvme_get_log(&args_data);
+		ret = nvme_get_log(&args);
 
-		if (ret) {
-			fprintf(stderr,
-				"ERROR: WDC: Unable to read 0x%x Log Page data with uuid %d, ret = 0x%x\n",
-				lid, uuid_ix, ret);
-			goto end;
+		hdr_ptr = (struct wdc_c2_log_page_header *)data;
+		sph = (struct wdc_c2_log_subpage_header *)(data + length);
+		found = wdc_get_dev_mng_log_entry(le32_to_cpu(hdr_ptr->length), log_id, hdr_ptr, &sph);
+		if (found) {
+			*cbs_data = calloc(le32_to_cpu(sph->length), sizeof(__u8));
+			if (!*cbs_data) {
+				fprintf(stderr, "ERROR: WDC: calloc: %s\n", strerror(errno));
+				goto end;
+			}
+			memcpy((void *)*cbs_data, (void *)&sph->data, le32_to_cpu(sph->length));
+		} else {
+			/* WD version not found */
+			fprintf(stderr, "ERROR: WDC: Unable to find correct version of page 0x%x, entry id = %d\n", lid, log_id);
 		}
-	}
-
-	/* Check the log data to see if the WD version of log page ID's is found */
-	length = sizeof(struct wdc_c2_log_page_header);
-	hdr_ptr = (struct wdc_c2_log_page_header *)data;
-	sph = (struct wdc_c2_log_subpage_header *)(data + length);
-	found = wdc_get_dev_mng_log_entry(le32_to_cpu(hdr_ptr->length), log_id, hdr_ptr, &sph);
-	if (found) {
-		*cbs_data = calloc(le32_to_cpu(sph->length), sizeof(__u8));
-		if (!*cbs_data) {
-			fprintf(stderr, "ERROR: WDC: calloc: %s\n", strerror(errno));
-			found = false;
-			goto end;
-		}
-		memcpy((void *)*cbs_data, (void *)&sph->data, le32_to_cpu(sph->length));
-	} else {
-		fprintf(stderr, "ERROR: WDC: C2 log id 0x%x not found with uuid index %d\n",
-			log_id, uuid_ix);
 	}
 
 end:
 	free(data);
-	return found;
-}
-
-static bool get_dev_mgment_cbs_data(nvme_root_t r, struct nvme_dev *dev,
-				__u8 log_id, void **cbs_data)
-{
-	int ret = -1;
-	bool found = false;
-	__u8 uuid_ix = 0;
-	__u8 lid = 0;
-	*cbs_data = NULL;
-	__u32 device_id, read_vendor_id;
-	bool uuid_present = false;
-	int index = 0, uuid_index = 0;
-	struct nvme_id_uuid_list uuid_list;
-
-	ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
-	if (ret == 0) {
-		if (device_id == WDC_NVME_ZN350_DEV_ID || device_id == WDC_NVME_ZN350_DEV_ID_1) {
-			lid = WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID_C8;
-			uuid_ix = 0;
-		} else {
-			lid = WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID;
-		}
-	} else {
-		fprintf(stderr, "ERROR: WDC: get pci ids: %d\n", ret);
-		return false;
-	}
-
-	typedef struct nvme_id_uuid_list_entry *uuid_list_entry;
-
-	memset(&uuid_list, 0, sizeof(struct nvme_id_uuid_list));
-	if (wdc_CheckUuidListSupport(dev, &uuid_list)) {
-		uuid_list_entry uuid_list_entry_ptr = (uuid_list_entry)&uuid_list.entry[0];
-
-		while (index <= NVME_ID_UUID_LIST_MAX &&
-		       !wdc_UuidEqual(uuid_list_entry_ptr, (uuid_list_entry)UUID_END)) {
-
-			if (wdc_UuidEqual(uuid_list_entry_ptr,
-					  (uuid_list_entry)WDC_UUID)) {
-				uuid_present = true;
-				break;
-			} else if (wdc_UuidEqual(uuid_list_entry_ptr,
-						 (uuid_list_entry)WDC_UUID_SN640_3) &&
-				   wdc_is_sn640_3(device_id)) {
-				uuid_present = true;
-				break;
-			}
-			index++;
-			uuid_list_entry_ptr = (uuid_list_entry)&uuid_list.entry[index];
-		}
-		if (uuid_present)
-			uuid_index = index + 1;
-	}
-
-	if (!uuid_index && needs_c2_log_page_check(device_id)) {
-		/* In certain devices that don't support UUID lists, there are multiple
-		 * definitions of the C2 logpage. In those cases, the code
-		 * needs to try two UUID indexes and use an identification algorithm
-		 * to determine which is returning the correct log page data.
-		 */
-		uuid_ix = 1;
-	}
-
-	found = get_dev_mgmt_log_page_lid_data(dev, cbs_data, lid, log_id, uuid_ix);
-
-	if (!found) {
-		/* not found with uuid = 1 try with uuid = 0 */
-		uuid_ix = 0;
-		fprintf(stderr, "Not found, requesting log page with uuid_index %d\n", uuid_index);
-
-		found = get_dev_mgmt_log_page_lid_data(dev, cbs_data, lid, log_id, uuid_ix);
-	}
-
 	return found;
 }
 
@@ -3629,102 +3373,6 @@ free_buf:
 	return ret;
 }
 
-static int dump_internal_logs(struct nvme_dev *dev, char *dir_name, int verbose)
-{
-	char file_path[128];
-	void *telemetry_log;
-	const size_t bs = 512;
-	struct nvme_telemetry_log *hdr;
-	size_t full_size, offset = bs;
-	int err, output;
-
-	if (verbose)
-		printf("NVMe Telemetry log...\n");
-
-	hdr = malloc(bs);
-	telemetry_log = malloc(bs);
-	if (!hdr || !telemetry_log) {
-		fprintf(stderr, "Failed to allocate %zu bytes for log: %s\n", bs, strerror(errno));
-		err = -ENOMEM;
-		goto free_mem;
-	}
-	memset(hdr, 0, bs);
-
-	sprintf(file_path, "%s/telemetry.bin", dir_name);
-	output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-	if (output < 0) {
-		fprintf(stderr, "Failed to open output file %s: %s!\n", file_path, strerror(errno));
-		err = output;
-		goto free_mem;
-	}
-
-	struct nvme_get_log_args args = {
-		.lpo = 0,
-		.result = NULL,
-		.log = hdr,
-		.args_size = sizeof(args),
-		.fd = dev_fd(dev),
-		.timeout = NVME_DEFAULT_IOCTL_TIMEOUT,
-		.lid = NVME_LOG_LID_TELEMETRY_HOST,
-		.len = bs,
-		.nsid = NVME_NSID_ALL,
-		.csi = NVME_CSI_NVM,
-		.lsi = NVME_LOG_LSI_NONE,
-		.lsp = NVME_LOG_TELEM_HOST_LSP_CREATE,
-		.uuidx = NVME_UUID_NONE,
-		.rae = true,
-		.ot = false,
-	};
-
-	err = nvme_get_log(&args);
-	if (err < 0)
-		perror("get-telemetry-log");
-	else if (err > 0) {
-		nvme_show_status(err);
-		fprintf(stderr, "Failed to acquire telemetry header %d!\n", err);
-		goto close_output;
-	}
-
-	err = write(output, (void *)hdr, bs);
-	if (err != bs) {
-		fprintf(stderr, "Failed to flush all data to file!\n");
-		goto close_output;
-	}
-
-	full_size = (le16_to_cpu(hdr->dalb3) * bs) + offset;
-
-	while (offset != full_size) {
-		args.log = telemetry_log;
-		args.lpo = offset;
-		args.lsp = NVME_LOG_LSP_NONE;
-		err = nvme_get_log(&args);
-		if (err < 0) {
-			perror("get-telemetry-log");
-			break;
-		} else if (err > 0) {
-			fprintf(stderr, "Failed to acquire full telemetry log!\n");
-			nvme_show_status(err);
-			break;
-		}
-
-		err = write(output, (void *)telemetry_log, bs);
-		if (err != bs) {
-			fprintf(stderr, "Failed to flush all data to file!\n");
-			break;
-		}
-		err = 0;
-		offset += bs;
-	}
-
-close_output:
-	close(output);
-free_mem:
-	free(hdr);
-	free(telemetry_log);
-
-	return err;
-}
-
 static int wdc_vs_internal_fw_log(int argc, char **argv, struct command *command,
 				  struct plugin *plugin)
 {
@@ -3737,7 +3385,6 @@ static int wdc_vs_internal_fw_log(int argc, char **argv, struct command *command
 	char *type = "Telemetry type - NONE, HOST, or CONTROLLER. Currently only supported on the SN530, SN640, SN730, SN740, SN810, SN840 and ZN350 devices.";
 	char *verbose = "Display more debug messages.";
 	char f[PATH_MAX] = {0};
-	char fb[PATH_MAX/2] = {0};
 	char fileSuffix[PATH_MAX] = {0};
 	struct nvme_dev *dev;
 	nvme_root_t r;
@@ -3746,9 +3393,6 @@ static int wdc_vs_internal_fw_log(int argc, char **argv, struct command *command
 	UtilsTimeInfo             timeInfo;
 	__u8                      timeStamp[MAX_PATH_LEN];
 	__u64 capabilities = 0;
-	__u32 device_id, read_vendor_id;
-	char file_path[PATH_MAX/2] = {0};
-	char cmd_buf[PATH_MAX] = {0};
 	int ret = -1;
 
 	struct config {
@@ -3797,149 +3441,72 @@ static int wdc_vs_internal_fw_log(int argc, char **argv, struct command *command
 		goto out;
 	}
 
-	ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
+	if (cfg.file) {
+		int verify_file;
 
-	if (!wdc_is_sn861(device_id)) {
-		if (cfg.file) {
-			int verify_file;
-
-			/* verify file name and path is valid before getting dump data */
-			verify_file = open(cfg.file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
-			if (verify_file < 0) {
-				fprintf(stderr, "ERROR: WDC: open: %s\n", strerror(errno));
-				goto out;
-			}
-			close(verify_file);
-			strncpy(f, cfg.file, PATH_MAX - 1);
-		} else {
-			wdc_UtilsGetTime(&timeInfo);
-			memset(timeStamp, 0, sizeof(timeStamp));
-			wdc_UtilsSnprintf((char *)timeStamp, MAX_PATH_LEN,
-				"%02u%02u%02u_%02u%02u%02u", timeInfo.year,
-				timeInfo.month, timeInfo.dayOfMonth,
-				timeInfo.hour, timeInfo.minute,
-				timeInfo.second);
-			snprintf(fileSuffix, PATH_MAX, "_internal_fw_log_%s", (char *)timeStamp);
-
-			ret = wdc_get_serial_name(dev, f, PATH_MAX, fileSuffix);
-			if (ret) {
-				fprintf(stderr, "ERROR: WDC: failed to generate file name\n");
-				goto out;
-			}
-		}
-
-		if (!cfg.file) {
-			if (strlen(f) > PATH_MAX - 5) {
-				fprintf(stderr, "ERROR: WDC: file name overflow\n");
-				ret = -1;
-				goto out;
-			}
-			strcat(f, ".bin");
-		}
-		fprintf(stderr, "%s: filename = %s\n", __func__, f);
-
-		if (cfg.data_area) {
-			if (cfg.data_area > 5 || cfg.data_area < 1) {
-				fprintf(stderr, "ERROR: WDC: Data area must be 1-5\n");
-				ret = -1;
-				goto out;
-			}
-		}
-
-		if (!cfg.type || !strcmp(cfg.type, "NONE") || !strcmp(cfg.type, "none")) {
-			telemetry_type = WDC_TELEMETRY_TYPE_NONE;
-			data_area = 0;
-		} else if (!strcmp(cfg.type, "HOST") || !strcmp(cfg.type, "host")) {
-			telemetry_type = WDC_TELEMETRY_TYPE_HOST;
-			telemetry_data_area = cfg.data_area;
-		} else if (!strcmp(cfg.type, "CONTROLLER") || !strcmp(cfg.type, "controller")) {
-			telemetry_type = WDC_TELEMETRY_TYPE_CONTROLLER;
-			telemetry_data_area = cfg.data_area;
-		} else {
-			fprintf(stderr,
-				"ERROR: WDC: Invalid type - Must be NONE, HOST or CONTROLLER\n");
-			ret = -1;
+		/* verify the passed in file name and path is valid before getting the dump data */
+		verify_file = open(cfg.file, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+		if (verify_file < 0) {
+			fprintf(stderr, "ERROR: WDC: open: %s\n", strerror(errno));
 			goto out;
 		}
+		close(verify_file);
+		strncpy(f, cfg.file, PATH_MAX - 1);
 	} else {
-		if (cfg.file) {
-			strncpy(fb, cfg.file, PATH_MAX/2 - 8);
-		} else {
-			wdc_UtilsGetTime(&timeInfo);
-			memset(timeStamp, 0, sizeof(timeStamp));
-			wdc_UtilsSnprintf((char *)timeStamp, MAX_PATH_LEN,
-				"%02u%02u%02u_%02u%02u%02u", timeInfo.year,
-				timeInfo.month, timeInfo.dayOfMonth,
-				timeInfo.hour, timeInfo.minute,
-				timeInfo.second);
-			snprintf(fileSuffix, PATH_MAX, "_internal_fw_log_%s", (char *)timeStamp);
+		wdc_UtilsGetTime(&timeInfo);
+		memset(timeStamp, 0, sizeof(timeStamp));
+		wdc_UtilsSnprintf((char *)timeStamp, MAX_PATH_LEN, "%02u%02u%02u_%02u%02u%02u",
+			timeInfo.year, timeInfo.month, timeInfo.dayOfMonth,
+			timeInfo.hour, timeInfo.minute, timeInfo.second);
+		snprintf(fileSuffix, PATH_MAX, "_internal_fw_log_%s", (char *)timeStamp);
 
-			ret = wdc_get_serial_name(dev, fb, PATH_MAX/2 - 7, fileSuffix);
-			if (ret) {
-				fprintf(stderr, "ERROR: WDC: failed to generate file name\n");
-				goto out;
-			}
-
-			if (strlen(fb) > PATH_MAX/2 - 7) {
-				fprintf(stderr, "ERROR: WDC: file name overflow\n");
-				ret = -1;
-				goto out;
-			}
-		}
-		fprintf(stderr, "%s: filename = %s.tar.gz\n", __func__, fb);
-
-
-		memset(file_path, 0, sizeof(file_path));
-		if (snprintf(file_path, PATH_MAX/2 - 8, "%s.tar.gz", fb) >= PATH_MAX/2 - 8) {
-			fprintf(stderr, "File path is too long!\n");
-			ret = -1;
-			goto out;
-		}
-		if (access(file_path, F_OK) != -1) {
-			fprintf(stderr, "Output file already exists!\n");
-			ret = -EEXIST;
+		ret = wdc_get_serial_name(dev, f, PATH_MAX, fileSuffix);
+		if (ret) {
+			fprintf(stderr, "ERROR: WDC: failed to generate file name\n");
 			goto out;
 		}
 	}
 
+	if (!cfg.file) {
+		if (strlen(f) > PATH_MAX - 5) {
+			fprintf(stderr, "ERROR: WDC: file name overflow\n");
+			ret = -1;
+			goto out;
+		}
+		strcat(f, ".bin");
+	}
+	fprintf(stderr, "%s: filename = %s\n", __func__, f);
+
+	if (cfg.data_area) {
+		if (cfg.data_area > 5 || cfg.data_area < 1) {
+			fprintf(stderr, "ERROR: WDC: Data area must be 1-5\n");
+			ret = -1;
+			goto out;
+		}
+	}
+
+	if (!cfg.type || !strcmp(cfg.type, "NONE") || !strcmp(cfg.type, "none")) {
+		telemetry_type = WDC_TELEMETRY_TYPE_NONE;
+		data_area = 0;
+	} else if (!strcmp(cfg.type, "HOST") || !strcmp(cfg.type, "host")) {
+		telemetry_type = WDC_TELEMETRY_TYPE_HOST;
+		telemetry_data_area = cfg.data_area;
+	} else if (!strcmp(cfg.type, "CONTROLLER") || !strcmp(cfg.type, "controller")) {
+		telemetry_type = WDC_TELEMETRY_TYPE_CONTROLLER;
+		telemetry_data_area = cfg.data_area;
+	} else {
+		fprintf(stderr, "ERROR: WDC: Invalid type - Must be NONE, HOST or CONTROLLER\n");
+		ret = -1;
+		goto out;
+	}
+
 	capabilities = wdc_get_drive_capabilities(r, dev);
 	if ((capabilities & WDC_DRIVE_CAP_INTERNAL_LOG) == WDC_DRIVE_CAP_INTERNAL_LOG) {
-		if (!wdc_is_sn861(device_id)) {
-			/* Set the default DA to 3 if not specified */
-			if (!telemetry_data_area)
-				telemetry_data_area = 3;
+		if (!telemetry_data_area)
+			telemetry_data_area = 3;       /* Set the default DA to 3 if not specified */
 
-			ret = wdc_do_cap_diag(r, dev, f, xfer_size,
-					telemetry_type, telemetry_data_area);
-		} else {
-			if (cfg.verbose)
-				printf("Creating temp directory...\n");
-
-			ret = mkdir(fb, 0666);
-			if (ret) {
-				fprintf(stderr, "Failed to create directory!\n");
-				goto out;
-			}
-
-			ret = dump_internal_logs(dev, fb, cfg.verbose);
-			if (ret < 0)
-				perror("vs-internal-log");
-
-			if (cfg.verbose)
-				printf("Archiving...\n");
-
-			if (snprintf(cmd_buf, PATH_MAX,
-				     "tar --remove-files -czf %s %s",
-				     file_path, fb) >= PATH_MAX) {
-				fprintf(stderr, "Command buffer is too long!\n");
-				ret = -1;
-				goto out;
-			}
-
-			ret = system(cmd_buf);
-			if (ret)
-				fprintf(stderr, "Failed to create an archive file!\n");
-		}
+		ret = wdc_do_cap_diag(r, dev, f, xfer_size,
+				  telemetry_type, telemetry_data_area);
 		goto out;
 	}
 	if ((capabilities & WDC_DRIVE_CAP_DUI) == WDC_DRIVE_CAP_DUI) {
@@ -4795,7 +4362,7 @@ static void wdc_print_dev_cap_log_normal(struct wdc_ocp_C4_dev_cap_log *log_data
 	printf("  Minimum DSSD Power State		: 0x%x\n", le16_to_cpu(log_data->min_dssd_ps));
 
 	for (j = 0; j < WDC_OCP_C4_NUM_PS_DESCR; j++)
-		printf("  DSSD Power State %d Descriptor	: 0x%x\n", j, log_data->dssd_ps_descr[j]);
+		printf("  DSSD Power State %d Desriptor	: 0x%x\n", j, log_data->dssd_ps_descr[j]);
 
 	printf("  Log Page Version			: 0x%x\n", le16_to_cpu(log_data->log_page_version));
 	printf("  Log page GUID				: 0x");
@@ -5439,9 +5006,7 @@ static void wdc_get_commit_action_bin(__u8 commit_action_type, char *action_bin)
 
 }
 
-static void wdc_print_fw_act_history_log_normal(__u8 *data, int num_entries,
-						__u32 cust_id, __u32 vendor_id,
-						__u32 device_id)
+static void wdc_print_fw_act_history_log_normal(__u8 *data, int num_entries, __u32 cust_id, __u32 vendor_id)
 {
 	int i, j;
 	char previous_fw[9];
@@ -5455,9 +5020,7 @@ static void wdc_print_fw_act_history_log_normal(__u8 *data, int num_entries,
 
 	if (data[0] == WDC_NVME_GET_FW_ACT_HISTORY_C2_LOG_ID) {
 		printf("  Firmware Activate History Log\n");
-		if (cust_id == WDC_CUSTOMER_ID_0x1005 ||
-		    vendor_id == WDC_NVME_SNDK_VID ||
-		    wdc_is_sn861(device_id)) {
+		if (cust_id == WDC_CUSTOMER_ID_0x1005 || vendor_id == WDC_NVME_SNDK_VID) {
 			printf("           Power on Hour       Power Cycle     Previous    New\n");
 			printf("  Entry      hh:mm:ss             Count        Firmware    Firmware    Slot   Action  Result\n");
 			printf("  -----  -----------------  -----------------  ---------   ---------   -----  ------  -------\n");
@@ -5515,26 +5078,6 @@ static void wdc_print_fw_act_history_log_normal(__u8 *data, int num_entries,
 				sprintf((char *)time_str, "%04d:%02d:%02d", (int)((timestamp/(3600*1000))%24), (int)((timestamp/(1000*60))%60),
 						(int)((timestamp/1000)%60));
 				printf("%s", time_str);
-				printf("     ");
-			} else if (wdc_is_sn861(device_id)) {
-				printf("        ");
-				char timestamp[20];
-				__u64 hour;
-				__u8 min;
-				__u8 sec;
-				__u64 timestamp_sec;
-
-				timestamp_sec =
-					le64_to_cpu(fw_act_history_entry->entry[entryIdx].timestamp)
-					/ 1000;
-				hour = timestamp_sec / 3600;
-				min = (timestamp_sec % 3600) / 60;
-				sec = timestamp_sec % 60;
-
-				sprintf(timestamp,
-					"%"PRIu64":%02"PRIu8":%02"PRIu8,
-					(uint64_t)hour, min, sec);
-				printf("%-11s", timestamp);
 				printf("     ");
 			} else {
 				printf("   ");
@@ -5634,9 +5177,7 @@ static void wdc_print_fw_act_history_log_normal(__u8 *data, int num_entries,
 	}
 }
 
-static void wdc_print_fw_act_history_log_json(__u8 *data, int num_entries,
-					      __u32 cust_id, __u32 vendor_id,
-					      __u32 device_id)
+static void wdc_print_fw_act_history_log_json(__u8 *data, int num_entries, __u32 cust_id, __u32 vendor_id)
 {
 	struct json_object *root = json_create_object();
 	int i, j;
@@ -5645,13 +5186,11 @@ static void wdc_print_fw_act_history_log_json(__u8 *data, int num_entries,
 	char commit_action_bin[8];
 	char fail_str[32];
 	char time_str[11];
-	char ext_time_str[20];
 
 	memset((void *)previous_fw, 0, 9);
 	memset((void *)new_fw, 0, 9);
 	memset((void *)commit_action_bin, 0, 8);
 	memset((void *)time_str, 0, 11);
-	memset((void *)ext_time_str, 0, 20);
 	memset((void *)fail_str, 0, 11);
 	char *null_fw = "--------";
 	__u16 oldestEntryIdx = 0, entryIdx = 0;
@@ -5703,17 +5242,6 @@ static void wdc_print_fw_act_history_log_json(__u8 *data, int num_entries,
 				sprintf((char *)time_str, "%04d:%02d:%02d", (int)((timestamp/(3600*1000))%24), (int)((timestamp/(1000*60))%60),
 						(int)((timestamp/1000)%60));
 				json_object_add_value_string(root, "Power on Hour", time_str);
-			} else if (wdc_is_sn861(device_id)) {
-				__u64 timestamp_sec =
-					le64_to_cpu(fw_act_history_entry->entry[entryIdx].timestamp)
-					/ 1000;
-
-				sprintf((char *)ext_time_str,
-					"%"PRIu64":%02"PRIu8":%02"PRIu8,
-					(uint64_t)(__u64)(timestamp_sec/3600),
-					(__u8)((timestamp_sec%3600)/60),
-					(__u8)(timestamp_sec%60));
-				json_object_add_value_string(root, "Power on Hour", ext_time_str);
 			} else {
 				uint64_t timestamp = (0x0000FFFFFFFFFFFF & le64_to_cpu(fw_act_history_entry->entry[entryIdx].timestamp));
 
@@ -6543,7 +6071,7 @@ static void wdc_print_smart_cloud_attr_C0_normal(void *data)
 	       (uint16_t)le16_to_cpu(*(uint16_t *)&log_data[SCAO_CPH]));
 	printf("  Unaligned I/O					: %"PRIu64"\n",
 	       (uint64_t)le64_to_cpu(*(uint64_t *)&log_data[SCAO_UIO]));
-	printf("  Security Version Number			: %"PRIu64"\n",
+	printf("  Securqity Version Number			: %"PRIu64"\n",
 	       (uint64_t)le64_to_cpu(*(uint64_t *)&log_data[SCAO_SVN]));
 	printf("  NUSE Namespace utilization			: %"PRIu64"\n",
 	       (uint64_t)le64_to_cpu(*(uint64_t *)&log_data[SCAO_NUSE]));
@@ -6937,19 +6465,17 @@ static int wdc_get_c0_log_page_sn(nvme_root_t r, struct nvme_dev *dev, int uuid_
 static int wdc_get_c0_log_page(nvme_root_t r, struct nvme_dev *dev, char *format, int uuid_index,
 			       __u32 namespace_id)
 {
-	uint32_t device_id, read_vendor_id;
-	enum nvme_print_flags fmt;
-	int ret;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
-	__u8 log_id;
-	__u32 length;
+	uint32_t device_id, read_vendor_id;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
@@ -6969,16 +6495,6 @@ static int wdc_get_c0_log_page(nvme_root_t r, struct nvme_dev *dev, char *format
 		fallthrough;
 	case WDC_NVME_SN860_DEV_ID:
 		fallthrough;
-	case WDC_NVME_SN560_DEV_ID_1:
-		fallthrough;
-	case WDC_NVME_SN560_DEV_ID_2:
-		fallthrough;
-	case WDC_NVME_SN560_DEV_ID_3:
-		fallthrough;
-	case WDC_NVME_SN550_DEV_ID:
-		ret = wdc_get_c0_log_page_sn(r, dev, uuid_index, format, namespace_id, fmt);
-		break;
-
 	case WDC_NVME_SN650_DEV_ID:
 		fallthrough;
 	case WDC_NVME_SN650_DEV_ID_1:
@@ -6990,63 +6506,16 @@ static int wdc_get_c0_log_page(nvme_root_t r, struct nvme_dev *dev, char *format
 	case WDC_NVME_SN650_DEV_ID_4:
 		fallthrough;
 	case WDC_NVME_SN655_DEV_ID:
-		if (uuid_index == 0) {
-			log_id = WDC_NVME_GET_SMART_CLOUD_ATTR_LOG_ID;
-			length = WDC_NVME_SMART_CLOUD_ATTR_LEN;
-		} else {
-			log_id = WDC_NVME_GET_EOL_STATUS_LOG_OPCODE;
-			length = WDC_NVME_EOL_STATUS_LOG_LEN;
-		}
-
-		data = (__u8 *)malloc(sizeof(__u8) * length);
-		if (!data) {
-			fprintf(stderr, "ERROR: WDC: malloc: %s\n", strerror(errno));
-			return -1;
-		}
-
-		if (namespace_id == NVME_NSID_ALL) {
-			ret = nvme_get_nsid(dev_fd(dev), &namespace_id);
-			if (ret < 0)
-				namespace_id = NVME_NSID_ALL;
-		}
-
-		/* Get the 0xC0 log data */
-		struct nvme_get_log_args args = {
-			.args_size	= sizeof(args),
-			.fd			= dev_fd(dev),
-			.lid		= log_id,
-			.nsid		= namespace_id,
-			.lpo		= 0,
-			.lsp		= NVME_LOG_LSP_NONE,
-			.lsi		= 0,
-			.rae		= false,
-			.uuidx		= uuid_index,
-			.csi		= NVME_CSI_NVM,
-			.ot			= false,
-			.len		= length,
-			.log		= data,
-			.timeout	= NVME_DEFAULT_IOCTL_TIMEOUT,
-			.result		= NULL,
-		};
-		ret = nvme_get_log(&args);
-
-		if (strcmp(format, "json"))
-			nvme_show_status(ret);
-
-		if (!ret) {
-			/* parse the data */
-			if (uuid_index == 0)
-				wdc_print_c0_cloud_attr_log(data, fmt);
-			else
-				wdc_print_c0_eol_log(data, fmt);
-		} else {
-			fprintf(stderr, "ERROR: WDC: Unable to read C0 Log Page data ");
-			fprintf(stderr, "with uuid index %d\n", uuid_index);
-			ret = -1;
-		}
-		free(data);
+		fallthrough;
+	case WDC_NVME_SN560_DEV_ID_1:
+		fallthrough;
+	case WDC_NVME_SN560_DEV_ID_2:
+		fallthrough;
+	case WDC_NVME_SN560_DEV_ID_3:
+		fallthrough;
+	case WDC_NVME_SN550_DEV_ID:
+		ret = wdc_get_c0_log_page_sn(r, dev, uuid_index, format, namespace_id, fmt);
 		break;
-
 	case WDC_NVME_ZN350_DEV_ID:
 		fallthrough;
 	case WDC_NVME_ZN350_DEV_ID_1:
@@ -7228,9 +6697,7 @@ static int wdc_print_d0_log(struct wdc_ssd_d0_smart_log *perf, int fmt)
 	return 0;
 }
 
-static int wdc_print_fw_act_history_log(__u8 *data, int num_entries, int fmt,
-					__u32 cust_id, __u32 vendor_id,
-					__u32 device_id)
+static int wdc_print_fw_act_history_log(__u8 *data, int num_entries, int fmt, __u32 cust_id, __u32 vendor_id)
 {
 	if (!data) {
 		fprintf(stderr, "ERROR: WDC: Invalid buffer to read fw activate history entries\n");
@@ -7239,12 +6706,10 @@ static int wdc_print_fw_act_history_log(__u8 *data, int num_entries, int fmt,
 
 	switch (fmt) {
 	case NORMAL:
-		wdc_print_fw_act_history_log_normal(data, num_entries, cust_id,
-						    vendor_id, device_id);
+		wdc_print_fw_act_history_log_normal(data, num_entries, cust_id, vendor_id);
 		break;
 	case JSON:
-		wdc_print_fw_act_history_log_json(data, num_entries, cust_id,
-						  vendor_id, device_id);
+		wdc_print_fw_act_history_log_json(data, num_entries, cust_id, vendor_id);
 		break;
 	}
 	return 0;
@@ -7252,19 +6717,19 @@ static int wdc_print_fw_act_history_log(__u8 *data, int num_entries, int fmt,
 
 static int wdc_get_ca_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	uint32_t read_device_id, read_vendor_id;
-	struct wdc_ssd_ca_perf_stats *perf;
-	enum nvme_print_flags fmt;
-	__u32 cust_id;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
-	int ret;
+	struct wdc_ssd_ca_perf_stats *perf;
+	uint32_t read_device_id, read_vendor_id;
+	__u32 cust_id;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	/* verify the 0xCA log page is supported */
@@ -7388,24 +6853,23 @@ static int wdc_get_ca_log_page(nvme_root_t r, struct nvme_dev *dev, char *format
 static int wdc_get_c1_log_page(nvme_root_t r, struct nvme_dev *dev,
 			       char *format, uint8_t interval)
 {
-	struct wdc_log_page_subpage_header *sph;
-	struct wdc_ssd_perf_stats *perf;
-	struct wdc_log_page_header *l;
-	enum nvme_print_flags fmt;
-	int total_subpages;
-	int skip_cnt = 4;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
 	__u8 *p;
 	int i;
-	int ret;
+	int skip_cnt = 4;
+	int total_subpages;
+	struct wdc_log_page_header *l;
+	struct wdc_log_page_subpage_header *sph;
+	struct wdc_ssd_perf_stats *perf;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	if (interval < 1 || interval > 15) {
@@ -7447,19 +6911,18 @@ static int wdc_get_c1_log_page(nvme_root_t r, struct nvme_dev *dev,
 
 static int wdc_get_c3_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	struct wdc_ssd_latency_monitor_log *log_data;
-	enum nvme_print_flags fmt;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
-	int ret;
 	int i;
+	struct wdc_ssd_latency_monitor_log *log_data;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * WDC_LATENCY_MON_LOG_BUF_LEN);
@@ -7519,19 +6982,18 @@ out:
 
 static int wdc_get_ocp_c1_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	struct wdc_ocp_c1_error_recovery_log *log_data;
-	enum nvme_print_flags fmt;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
-	int ret;
 	int i;
+	struct wdc_ocp_c1_error_recovery_log *log_data;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * WDC_ERROR_REC_LOG_BUF_LEN);
@@ -7590,19 +7052,18 @@ out:
 
 static int wdc_get_ocp_c4_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	struct wdc_ocp_C4_dev_cap_log *log_data;
-	enum nvme_print_flags fmt;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
-	int ret;
 	int i;
+	struct wdc_ocp_C4_dev_cap_log *log_data;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * WDC_DEV_CAP_LOG_BUF_LEN);
@@ -7660,19 +7121,18 @@ out:
 
 static int wdc_get_ocp_c5_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	struct wdc_ocp_C5_unsupported_reqs *log_data;
-	enum nvme_print_flags fmt;
-	int ret;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
 	int i;
+	struct wdc_ocp_C5_unsupported_reqs *log_data;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	data = (__u8 *)malloc(sizeof(__u8) * WDC_UNSUPPORTED_REQS_LOG_BUF_LEN);
@@ -7730,18 +7190,17 @@ out:
 
 static int wdc_get_d0_log_page(nvme_root_t r, struct nvme_dev *dev, char *format)
 {
-	struct wdc_ssd_d0_smart_log *perf;
-	enum nvme_print_flags fmt;
 	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
+	struct wdc_ssd_d0_smart_log *perf;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
-
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	/* verify the 0xD0 log page is supported */
@@ -7776,235 +7235,6 @@ static int wdc_get_d0_log_page(nvme_root_t r, struct nvme_dev *dev, char *format
 	return ret;
 }
 
-static long double le_to_float(__u8 *data, int byte_len)
-{
-	long double result = 0;
-	int i;
-
-	for (i = 0; i < byte_len; i++) {
-		result *= 256;
-		result += data[15 - i];
-	}
-
-	return result;
-}
-
-static void stringify_log_page_guid(__u8 *guid, char *buf)
-{
-	char *ptr = buf;
-	int i;
-
-	memset(buf, 0, sizeof(char) * 19);
-
-	ptr += sprintf(ptr, "0x");
-	for (i = 0; i < 16; i++)
-		ptr += sprintf(ptr, "%x", guid[15 - i]);
-}
-
-static const char *const cloud_smart_log_thermal_status[] = {
-	[0x00] = "unthrottled",
-	[0x01] = "first_level",
-	[0x02] = "second_level",
-	[0x03] = "third_level",
-};
-
-static const char *stringify_cloud_smart_log_thermal_status(__u8 status)
-{
-	if (status < ARRAY_SIZE(cloud_smart_log_thermal_status) &&
-	    cloud_smart_log_thermal_status[status])
-		return cloud_smart_log_thermal_status[status];
-	return "unrecognized";
-}
-
-static void show_cloud_smart_log_json(struct ocp_cloud_smart_log *log)
-{
-	struct json_object *root;
-	struct json_object *bad_user_nand_blocks;
-	struct json_object *bad_system_nand_blocks;
-	struct json_object *e2e_correction_counts;
-	struct json_object *user_data_erase_counts;
-	struct json_object *thermal_status;
-	struct json_object *dssd_specific_ver;
-	char buf[2 * sizeof(log->log_page_guid) + 3];
-
-	bad_user_nand_blocks = json_create_object();
-	json_object_add_value_uint(bad_user_nand_blocks, "normalized",
-				   le16_to_cpu(log->bad_user_nand_blocks.normalized));
-	json_object_add_value_uint(bad_user_nand_blocks, "raw",
-				   le64_to_cpu(log->bad_user_nand_blocks.raw));
-
-	bad_system_nand_blocks = json_create_object();
-	json_object_add_value_uint(bad_system_nand_blocks, "normalized",
-				   le16_to_cpu(log->bad_system_nand_blocks.normalized));
-	json_object_add_value_uint(bad_system_nand_blocks, "raw",
-				   le64_to_cpu(log->bad_system_nand_blocks.raw));
-
-	e2e_correction_counts = json_create_object();
-	json_object_add_value_uint(e2e_correction_counts, "corrected",
-				   le32_to_cpu(log->e2e_correction_counts.corrected));
-	json_object_add_value_uint(e2e_correction_counts, "detected",
-				   le32_to_cpu(log->e2e_correction_counts.detected));
-
-	user_data_erase_counts = json_create_object();
-	json_object_add_value_uint(user_data_erase_counts, "minimum",
-				   le32_to_cpu(log->user_data_erase_counts.minimum));
-	json_object_add_value_uint(user_data_erase_counts, "maximum",
-				   le32_to_cpu(log->user_data_erase_counts.maximum));
-
-	thermal_status = json_create_object();
-	json_object_add_value_string(thermal_status, "current_status",
-		stringify_cloud_smart_log_thermal_status(log->thermal_status.current_status));
-	json_object_add_value_uint(thermal_status, "num_events",
-				   log->thermal_status.num_events);
-
-	dssd_specific_ver = json_create_object();
-	json_object_add_value_uint(dssd_specific_ver, "major_ver",
-				   log->dssd_specific_ver.major_ver);
-	json_object_add_value_uint(dssd_specific_ver, "minor_ver",
-				   le16_to_cpu(log->dssd_specific_ver.minor_ver));
-	json_object_add_value_uint(dssd_specific_ver, "point_ver",
-				   le16_to_cpu(log->dssd_specific_ver.point_ver));
-	json_object_add_value_uint(dssd_specific_ver, "errata_ver",
-				   log->dssd_specific_ver.errata_ver);
-
-	root = json_create_object();
-	json_object_add_value_uint64(root, "physical_media_units_written",
-				     le_to_float(log->physical_media_units_written, 16));
-	json_object_add_value_uint64(root, "physical_media_units_read",
-				     le_to_float(log->physical_media_units_read, 16));
-	json_object_add_value_object(root, "bad_user_nand_blocks",
-				     bad_user_nand_blocks);
-	json_object_add_value_object(root, "bad_system_nand_blocks",
-				     bad_system_nand_blocks);
-	json_object_add_value_uint(root, "xor_recovery_count",
-				   le64_to_cpu(log->xor_recovery_count));
-	json_object_add_value_uint(root, "uncorrectable_read_error_count",
-				   le64_to_cpu(log->uncorrectable_read_error_count));
-	json_object_add_value_uint(root, "soft_ecc_error_count",
-				   le64_to_cpu(log->soft_ecc_error_count));
-	json_object_add_value_object(root, "e2e_correction_counts",
-				     e2e_correction_counts);
-	json_object_add_value_uint(root, "system_data_percent_used",
-				   log->system_data_percent_used);
-	json_object_add_value_uint(root, "refresh_counts",
-				   le64_to_cpu(log->refresh_counts));
-	json_object_add_value_object(root, "user_data_erase_counts",
-				     user_data_erase_counts);
-	json_object_add_value_object(root, "thermal_status", thermal_status);
-	json_object_add_value_object(root, "dssd_specific_ver",
-				     dssd_specific_ver);
-	json_object_add_value_uint(root, "pcie_correctable_error_count",
-				   le64_to_cpu(log->pcie_correctable_error_count));
-	json_object_add_value_uint(root, "incomplete_shutdowns",
-				   le32_to_cpu(log->incomplete_shutdowns));
-	json_object_add_value_uint(root, "percent_free_blocks",
-				   log->percent_free_blocks);
-	json_object_add_value_uint(root, "capacitor_health",
-				   le16_to_cpu(log->capacitor_health));
-	sprintf(buf, "%c", log->nvme_errata_ver);
-	json_object_add_value_string(root, "nvme_errata_version", buf);
-	json_object_add_value_uint(root, "unaligned_io",
-				   le64_to_cpu(log->unaligned_io));
-	json_object_add_value_uint(root, "security_version_number",
-				   le64_to_cpu(log->security_version_number));
-	json_object_add_value_uint(root, "total_nuse",
-				   le64_to_cpu(log->total_nuse));
-	json_object_add_value_uint64(root, "plp_start_count",
-				     le_to_float(log->plp_start_count, 16));
-	json_object_add_value_uint64(root, "endurance_estimate",
-				     le_to_float(log->endurance_estimate, 16));
-	json_object_add_value_uint(root, "pcie_link_retraining_count",
-				   le64_to_cpu(log->pcie_link_retraining_cnt));
-	json_object_add_value_uint(root, "power_state_change_count",
-				   le64_to_cpu(log->power_state_change_cnt));
-	json_object_add_value_uint(root, "log_page_version",
-				   le16_to_cpu(log->log_page_version));
-	stringify_log_page_guid(log->log_page_guid, buf);
-	json_object_add_value_string(root, "log_page_guid", buf);
-
-	json_print_object(root, NULL);
-	printf("\n");
-	json_free_object(root);
-}
-
-static void show_cloud_smart_log_normal(struct ocp_cloud_smart_log *log, struct nvme_dev *dev)
-{
-	char buf[2 * sizeof(log->log_page_guid) + 3];
-
-	printf("Smart Extended Log for NVME device:%s\n", dev->name);
-	printf("Physical Media Units Written                 : %'.0Lf\n",
-	       le_to_float(log->physical_media_units_written, 16));
-	printf("Physical Media Units Read                    : %'.0Lf\n",
-	       le_to_float(log->physical_media_units_read, 16));
-	printf("Bad User NAND Blocks (Normalized)            : %" PRIu16 "%%\n",
-	       le16_to_cpu(log->bad_user_nand_blocks.normalized));
-	printf("Bad User NAND Blocks (Raw)                   : %" PRIu64 "\n",
-	       le64_to_cpu(log->bad_user_nand_blocks.raw));
-	printf("Bad System NAND Blocks (Normalized)          : %" PRIu16 "%%\n",
-	       le16_to_cpu(log->bad_system_nand_blocks.normalized));
-	printf("Bad System NAND Blocks (Raw)                 : %" PRIu64 "\n",
-	       le64_to_cpu(log->bad_system_nand_blocks.raw));
-	printf("XOR Recovery Count                           : %" PRIu64 "\n",
-	       le64_to_cpu(log->xor_recovery_count));
-	printf("Uncorrectable Read Error Count               : %" PRIu64 "\n",
-	       le64_to_cpu(log->uncorrectable_read_error_count));
-	printf("Soft ECC Error Count                         : %" PRIu64 "\n",
-	       le64_to_cpu(log->soft_ecc_error_count));
-	printf("End to End Correction Counts (Corrected)     : %" PRIu32 "\n",
-	       le32_to_cpu(log->e2e_correction_counts.corrected));
-	printf("End to End Correction Counts (Detected)      : %" PRIu32 "\n",
-	       le32_to_cpu(log->e2e_correction_counts.detected));
-	printf("System Data %% Used                           : %" PRIu8 "%%\n",
-	       log->system_data_percent_used);
-	printf("Refresh Counts                               : %" PRIu64 "\n",
-	       le64_to_cpu(log->refresh_counts));
-	printf("User Data Erase Counts (Minimum)             : %" PRIu32 "\n",
-	       le32_to_cpu(log->user_data_erase_counts.minimum));
-	printf("User Data Erase Counts (Maximum)             : %" PRIu32 "\n",
-	       le32_to_cpu(log->user_data_erase_counts.maximum));
-	printf("Thermal Throttling Status (Current Status)   : %s\n",
-	       stringify_cloud_smart_log_thermal_status(log->thermal_status.current_status));
-	printf("Thermal Throttling Status (Number of Events) : %" PRIu8 "\n",
-	       log->thermal_status.num_events);
-	printf("NVMe Major Version                           : %" PRIu8 "\n",
-	       log->dssd_specific_ver.major_ver);
-	printf("     Minor Version                           : %" PRIu16 "\n",
-	le16_to_cpu(log->dssd_specific_ver.minor_ver));
-	printf("     Point Version                           : %" PRIu16 "\n",
-	le16_to_cpu(log->dssd_specific_ver.point_ver));
-	printf("     Errata Version                          : %" PRIu8 "\n",
-	       log->dssd_specific_ver.errata_ver);
-	printf("PCIe Correctable Error Count                 : %" PRIu64 "\n",
-	       le64_to_cpu(log->pcie_correctable_error_count));
-	printf("Incomplete Shutdowns                         : %" PRIu32 "\n",
-	       le32_to_cpu(log->incomplete_shutdowns));
-	printf("%% Free Blocks                                : %" PRIu8 "%%\n",
-	       log->percent_free_blocks);
-	printf("Capacitor Health                             : %" PRIu16 "%%\n",
-	       le16_to_cpu(log->capacitor_health));
-	printf("NVMe Errata Version                          : %c\n",
-	       log->nvme_errata_ver);
-	printf("Unaligned IO                                 : %" PRIu64 "\n",
-	       le64_to_cpu(log->unaligned_io));
-	printf("Security Version Number                      : %" PRIu64 "\n",
-	       le64_to_cpu(log->security_version_number));
-	printf("Total NUSE                                   : %" PRIu64 "\n",
-	       le64_to_cpu(log->total_nuse));
-	printf("PLP Start Count                              : %'.0Lf\n",
-	       le_to_float(log->plp_start_count, 16));
-	printf("Endurance Estimate                           : %'.0Lf\n",
-	       le_to_float(log->endurance_estimate, 16));
-	printf("PCIe Link Retraining Count                   : %" PRIu64 "\n",
-	       le64_to_cpu(log->pcie_link_retraining_cnt));
-	printf("Power State Change Count                     : %" PRIu64 "\n",
-	       le64_to_cpu(log->power_state_change_cnt));
-	printf("Log Page Version                             : %" PRIu16 "\n",
-	       le16_to_cpu(log->log_page_version));
-	stringify_log_page_guid(log->log_page_guid, buf);
-	printf("Log Page GUID                                : %s\n", buf);
-	printf("\n\n");
-}
-
 static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 		struct plugin *plugin)
 {
@@ -8013,7 +7243,6 @@ static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 	const char *log_page_version = "Log Page Version: 0 = vendor, 1 = WDC";
 	const char *log_page_mask = "Log Page Mask, comma separated list: 0xC0, 0xC1, 0xCA, 0xD0";
 	const char *namespace_id = "desired namespace id";
-	enum nvme_print_flags fmt;
 	struct nvme_dev *dev;
 	nvme_root_t r;
 	int ret = 0;
@@ -8021,7 +7250,6 @@ static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 	int page_mask = 0, num, i;
 	int log_page_list[16];
 	__u64 capabilities = 0;
-	__u32 device_id, read_vendor_id;
 
 	struct config {
 		uint8_t interval;
@@ -8041,7 +7269,7 @@ static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 
 	OPT_ARGS(opts) = {
 		OPT_UINT("interval",          'i', &cfg.interval,         interval),
-		OPT_FMT("output-format",      'o', &cfg.output_format,    output_format),
+		OPT_FMT("output-format",      'o', &cfg.output_format,    "Output Format: normal|json"),
 		OPT_BYTE("log-page-version",  'l', &cfg.log_page_version, log_page_version),
 		OPT_LIST("log-page-mask",     'p', &cfg.log_page_mask,    log_page_mask),
 		OPT_UINT("namespace-id",      'n', &cfg.namespace_id,     namespace_id),
@@ -8089,9 +7317,8 @@ static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 	if (!page_mask)
 		fprintf(stderr, "ERROR: WDC: Unknown log page mask - %s\n", cfg.log_page_mask);
 
-	ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
-
 	capabilities = wdc_get_drive_capabilities(r, dev);
+
 	if (!(capabilities & WDC_DRIVE_CAP_SMART_LOG_MASK)) {
 		fprintf(stderr, "ERROR: WDC: unsupported device for this command\n");
 		ret = -1;
@@ -8101,56 +7328,13 @@ static int wdc_vs_smart_add_log(int argc, char **argv, struct command *command,
 	if (((capabilities & WDC_DRIVE_CAP_C0_LOG_PAGE) == WDC_DRIVE_CAP_C0_LOG_PAGE) &&
 	    (page_mask & WDC_C0_PAGE_MASK)) {
 		/* Get 0xC0 log page if possible. */
-		if (!wdc_is_sn861(device_id)) {
-			ret = wdc_get_c0_log_page(r, dev, cfg.output_format,
-						uuid_index, cfg.namespace_id);
-			if (ret)
-				fprintf(stderr,
-					"ERROR: WDC: Failure reading the C0 Log Page, ret = %d\n",
-					ret);
-		} else {
-			struct ocp_cloud_smart_log log;
-			char buf[2 * sizeof(log.log_page_guid) + 3];
-
-			ret = validate_output_format(output_format, &fmt);
-			if (ret < 0) {
-				fprintf(stderr, "Invalid output format: %s\n", cfg.output_format);
-				goto out;
-			}
-
-			ret = nvme_get_log_simple(dev_fd(dev),
-				WDC_NVME_GET_SMART_CLOUD_ATTR_LOG_ID,
-				sizeof(log), &log);
-			if (!ret) {
-				char *ptr = buf;
-				int i;
-				__u8 *guid = log.log_page_guid;
-
-				memset(buf, 0, sizeof(char) * 19);
-
-				ptr += sprintf(ptr, "0x");
-				for (i = 0; i < 16; i++)
-					ptr += sprintf(ptr, "%x", guid[15 - i]);
-				if (strcmp(buf, "0xafd514c97c6f4f9ca4f2bfea2810afc5"))
-					fprintf(stderr, "Invalid GUID: %s\n", buf);
-				else {
-					if (fmt == BINARY)
-						d_raw((unsigned char *)&log, sizeof(log));
-					else if (fmt == JSON)
-						show_cloud_smart_log_json(&log);
-					else
-						show_cloud_smart_log_normal(&log, dev);
-				}
-			} else if (ret > 0) {
-				nvme_show_status(ret);
-			} else {
-				perror("vs-smart-add-log");
-			}
-		}
+		ret = wdc_get_c0_log_page(r, dev, cfg.output_format,
+					  uuid_index, cfg.namespace_id);
+		if (ret)
+			fprintf(stderr, "ERROR: WDC: Failure reading the C0 Log Page, ret = %d\n", ret);
 	}
 	if (((capabilities & (WDC_DRIVE_CAP_CA_LOG_PAGE)) == (WDC_DRIVE_CAP_CA_LOG_PAGE)) &&
-	    (page_mask & WDC_CA_PAGE_MASK) &&
-	    (!wdc_is_sn861(device_id))) {
+	    (page_mask & WDC_CA_PAGE_MASK)) {
 		/* Get the CA Log Page */
 		ret = wdc_get_ca_log_page(r, dev, cfg.output_format);
 		if (ret)
@@ -8183,11 +7367,10 @@ static int wdc_vs_cloud_log(int argc, char **argv, struct command *command,
 {
 	const char *desc = "Retrieve Cloud Log Smart/Health Information";
 	const char *namespace_id = "desired namespace id";
-	enum nvme_print_flags fmt;
 	__u64 capabilities = 0;
 	struct nvme_dev *dev;
+	int ret, fmt = -1;
 	nvme_root_t r;
-	int ret;
 	__u8 *data;
 
 	struct config {
@@ -8228,13 +7411,14 @@ static int wdc_vs_cloud_log(int argc, char **argv, struct command *command,
 		nvme_show_status(ret);
 
 	if (!ret) {
-		ret = validate_output_format(cfg.output_format, &fmt);
-		if (ret < 0) {
+		fmt = validate_output_format(cfg.output_format);
+		if (fmt < 0) {
 			fprintf(stderr, "ERROR: WDC %s: invalid output format\n", __func__);
-		} else {
-			/* parse the data */
-			wdc_print_ext_smart_cloud_log(data, fmt);
+			ret = fmt;
 		}
+
+		/* parse the data */
+		wdc_print_ext_smart_cloud_log(data, fmt);
 	} else {
 		fprintf(stderr, "ERROR: WDC: Unable to read C0 Log Page V1 data\n");
 		ret = -1;
@@ -8254,10 +7438,9 @@ static int wdc_vs_hw_rev_log(int argc, char **argv, struct command *command,
 {
 	const char *desc = "Retrieve Hardware Revision Log Information";
 	const char *namespace_id = "desired namespace id";
-	enum nvme_print_flags fmt;
 	__u64 capabilities = 0;
 	struct nvme_dev *dev;
-	int ret;
+	int ret, fmt = -1;
 	__u8 *data = NULL;
 	nvme_root_t r;
 
@@ -8297,9 +7480,10 @@ static int wdc_vs_hw_rev_log(int argc, char **argv, struct command *command,
 		nvme_show_status(ret);
 
 	if (!ret) {
-		ret = validate_output_format(cfg.output_format, &fmt);
-		if (ret < 0) {
+		fmt = validate_output_format(cfg.output_format);
+		if (fmt < 0) {
 			fprintf(stderr, "ERROR: WDC %s: invalid output format\n", __func__);
+			ret = fmt;
 			goto free_buf;
 		}
 
@@ -8314,8 +7498,6 @@ static int wdc_vs_hw_rev_log(int argc, char **argv, struct command *command,
 			break;
 		case JSON:
 			wdc_print_hw_rev_log_json(data);
-			break;
-		default:
 			break;
 		}
 	} else {
@@ -8339,11 +7521,11 @@ static int wdc_vs_device_waf(int argc, char **argv, struct command *command,
 	const char *desc = "Retrieve Device Write Amplication Factor";
 	const char *namespace_id = "desired namespace id";
 	struct nvme_smart_log smart_log;
-	enum nvme_print_flags fmt;
 	struct nvme_dev *dev;
 	__u8 *data;
 	nvme_root_t r;
 	int ret = 0;
+	int fmt = -1;
 	__u64 capabilities = 0;
 	struct __packed wdc_nvme_ext_smart_log * ext_smart_log_ptr;
 	long double  data_units_written = 0,
@@ -8419,9 +7601,10 @@ static int wdc_vs_device_waf(int argc, char **argv, struct command *command,
 	if (strcmp(cfg.output_format, "json"))
 		nvme_show_status(ret);
 
-	ret = validate_output_format(cfg.output_format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(cfg.output_format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC %s: invalid output format\n", __func__);
+		ret = fmt;
 		goto out;
 	}
 
@@ -8753,7 +7936,7 @@ static int wdc_drive_status(int argc, char **argv, struct command *command,
 
 	/* verify the 0xC2 Device Manageability log page is supported */
 	if (wdc_nvme_check_supported_log_page(r, dev,
-					      WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID) == false) {
+					      WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE) == false) {
 		fprintf(stderr, "ERROR: WDC: 0xC2 Log Page not supported\n");
 		ret = -1;
 		goto out;
@@ -8895,18 +8078,18 @@ out:
 static int wdc_get_fw_act_history(nvme_root_t r, struct nvme_dev *dev,
 				  char *format)
 {
-	struct wdc_fw_act_history_log_hdr *fw_act_history_hdr;
-	enum nvme_print_flags fmt;
-	int ret;
+	int ret = 0;
+	int fmt = -1;
 	__u8 *data;
+	struct wdc_fw_act_history_log_hdr *fw_act_history_hdr;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	/* verify the FW Activate History log page is supported */
@@ -8938,7 +8121,7 @@ static int wdc_get_fw_act_history(nvme_root_t r, struct nvme_dev *dev,
 		if ((fw_act_history_hdr->num_entries > 0) &&
 		    (fw_act_history_hdr->num_entries <= WDC_MAX_NUM_ACT_HIST_ENTRIES)) {
 			ret = wdc_print_fw_act_history_log(data, fw_act_history_hdr->num_entries,
-							   fmt, 0, 0, 0);
+							   fmt, 0, 0);
 		} else if (!fw_act_history_hdr->num_entries) {
 			fprintf(stderr, "INFO: WDC: No FW Activate History entries found.\n");
 			ret = 0;
@@ -8976,21 +8159,21 @@ static __u32 wdc_get_fw_cust_id(nvme_root_t r, struct nvme_dev *dev)
 static int wdc_get_fw_act_history_C2(nvme_root_t r, struct nvme_dev *dev,
 				     char *format)
 {
+	int ret = 0;
+	int fmt = -1;
+	__u8 *data;
+	__u32 cust_id;
 	struct wdc_fw_act_history_log_format_c2 *fw_act_history_log;
 	__u32 tot_entries = 0, num_entries = 0;
 	__u32 vendor_id = 0, device_id = 0;
-	__u32 cust_id = 0;
-	enum nvme_print_flags fmt;
-	__u8 *data;
-	int ret;
 
 	if (!wdc_check_device(r, dev))
 		return -1;
 
-	ret = validate_output_format(format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
-		return ret;
+		return fmt;
 	}
 
 	ret = wdc_get_pci_ids(r, dev, &device_id, &vendor_id);
@@ -9017,20 +8200,15 @@ static int wdc_get_fw_act_history_C2(nvme_root_t r, struct nvme_dev *dev,
 
 		if (tot_entries > 0) {
 			/* get the FW customer id */
-			if (!wdc_is_sn861(device_id)) {
-				cust_id = wdc_get_fw_cust_id(r, dev);
-				if (cust_id == WDC_INVALID_CUSTOMER_ID) {
-					fprintf(stderr,
-						"%s: ERROR: WDC: invalid customer id\n",
-						__func__);
-					ret = -1;
-					goto freeData;
-				}
+			cust_id = wdc_get_fw_cust_id(r, dev);
+			if (cust_id == WDC_INVALID_CUSTOMER_ID) {
+				fprintf(stderr, "%s: ERROR: WDC: invalid customer id\n", __func__);
+				ret = -1;
+				goto freeData;
 			}
 			num_entries = (tot_entries < WDC_MAX_NUM_ACT_HIST_ENTRIES) ? tot_entries :
 				WDC_MAX_NUM_ACT_HIST_ENTRIES;
-			ret = wdc_print_fw_act_history_log(data, num_entries,
-				fmt, cust_id, vendor_id, device_id);
+			ret = wdc_print_fw_act_history_log(data, num_entries, fmt, cust_id, vendor_id);
 		} else  {
 			fprintf(stderr, "INFO: WDC: No FW Activate History entries found.\n");
 			ret = 0;
@@ -10259,7 +9437,7 @@ static int wdc_reason_identifier(int argc, char **argv,
 	    cfg.log_id != NVME_LOG_LID_TELEMETRY_CTRL) {
 		fprintf(stderr, "ERROR: WDC: Invalid Log ID. It must be 7 (Host) or 8 (Controller)\n");
 		ret = -1;
-		goto close_dev;
+		goto close_fd;
 	}
 
 	if (cfg.file) {
@@ -10270,7 +9448,7 @@ static int wdc_reason_identifier(int argc, char **argv,
 		if (verify_file < 0) {
 			fprintf(stderr, "ERROR: WDC: open: %s\n", strerror(errno));
 			ret = -1;
-			goto close_dev;
+			goto close_fd;
 		}
 		close(verify_file);
 		strncpy(f, cfg.file, PATH_MAX - 1);
@@ -10288,12 +9466,12 @@ static int wdc_reason_identifier(int argc, char **argv,
 		if (wdc_get_serial_name(dev, f, PATH_MAX, fileSuffix) == -1) {
 			fprintf(stderr, "ERROR: WDC: failed to generate file name\n");
 			ret = -1;
-			goto close_dev;
+			goto close_fd;
 		}
 		if (strlen(f) > PATH_MAX - 5) {
 			fprintf(stderr, "ERROR: WDC: file name overflow\n");
 			ret = -1;
-			goto close_dev;
+			goto close_fd;
 		}
 		strcat(f, ".bin");
 	}
@@ -10310,7 +9488,7 @@ static int wdc_reason_identifier(int argc, char **argv,
 
 	nvme_show_status(ret);
 
-close_dev:
+close_fd:
 	dev_close(dev);
 	nvme_free_tree(r);
 	return ret;
@@ -10392,104 +9570,10 @@ static const char *nvme_log_id_to_string(__u8 log_id)
 	}
 }
 
-static void __json_log_page_directory(struct log_page_directory *directory)
-{
-	__u32 bitmap_idx;
-	__u8  log_id;
-	struct json_object *root;
-	struct json_object *entries;
-
-	root = json_create_object();
-
-	entries = json_create_array();
-	json_object_add_value_array(root, "Entries", entries);
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		log_id = bitmap_idx;
-		if (!log_page_name[log_id])
-			continue;
-		if (directory->supported_lid_bitmap & (1ULL << bitmap_idx)) {
-			struct json_object *json_entry = json_create_object();
-
-			json_object_add_value_uint(json_entry, "Log ID", log_id);
-			json_object_add_value_string(json_entry, "Log Page Name",
-						     log_page_name[log_id]);
-
-			json_array_add_value_object(entries, json_entry);
-		}
-	}
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		log_id = NVME_LOG_NS_BASE + bitmap_idx;
-		if (!log_page_name[log_id])
-			continue;
-		if (directory->supported_ns_lid_bitmap & (1ULL << bitmap_idx)) {
-			struct json_object *json_entry = json_create_object();
-
-			json_object_add_value_uint(json_entry, "Log ID", log_id);
-			json_object_add_value_string(json_entry, "Log Page Name",
-						     log_page_name[log_id]);
-
-			json_array_add_value_object(entries, json_entry);
-		}
-	}
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		log_id = NVME_LOG_VS_BASE + bitmap_idx;
-		if (!log_page_name[log_id])
-			continue;
-		if (directory->supported_vs_lid_bitmap & (1ULL << bitmap_idx)) {
-			struct json_object *json_entry = json_create_object();
-
-			json_object_add_value_uint(json_entry, "Log ID", log_id);
-			json_object_add_value_string(json_entry, "Log Page Name",
-						     log_page_name[log_id]);
-
-			json_array_add_value_object(entries, json_entry);
-		}
-	}
-
-	json_print_object(root, NULL);
-	printf("\n");
-	json_free_object(root);
-}
-
-
-static void __show_log_page_directory(struct log_page_directory *directory)
-{
-	__u32 bitmap_idx;
-	__u8  log_id;
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		if (directory->supported_lid_bitmap & (1ULL << bitmap_idx)) {
-			log_id = bitmap_idx;
-			if (log_page_name[log_id])
-				printf("0x%02X: %s\n", log_id, log_page_name[log_id]);
-		}
-	}
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		if (directory->supported_ns_lid_bitmap & (1ULL << bitmap_idx)) {
-			log_id = NVME_LOG_NS_BASE + bitmap_idx;
-			if (log_page_name[log_id])
-				printf("0x%02X: %s\n", log_id, log_page_name[log_id]);
-		}
-	}
-
-	for (bitmap_idx = 0; bitmap_idx < BYTE_TO_BIT(sizeof(__u64)); bitmap_idx++) {
-		if (directory->supported_vs_lid_bitmap & (1ULL << bitmap_idx)) {
-			log_id = NVME_LOG_VS_BASE + bitmap_idx;
-			if (log_page_name[log_id])
-				printf("0x%02X: %s\n", log_id, log_page_name[log_id]);
-		}
-	}
-}
-
 static int wdc_log_page_directory(int argc, char **argv, struct command *command,
 		struct plugin *plugin)
 {
 	const char *desc = "Retrieve Log Page Directory.";
-	enum nvme_print_flags fmt;
 	struct nvme_dev *dev;
 	int ret = 0;
 	nvme_root_t r;
@@ -10498,8 +9582,6 @@ static int wdc_log_page_directory(int argc, char **argv, struct command *command
 	int i;
 	__u8 log_id = 0;
 	__u32 device_id, read_vendor_id;
-	bool uuid_supported = false;
-	struct nvme_id_uuid_list uuid_list;
 
 	struct config {
 		char *output_format;
@@ -10518,12 +9600,13 @@ static int wdc_log_page_directory(int argc, char **argv, struct command *command
 	if (ret)
 		return ret;
 
-	ret = validate_output_format(cfg.output_format, &fmt);
+	ret = validate_output_format(cfg.output_format);
 	if (ret < 0) {
 		fprintf(stderr, "%s: ERROR: WDC: invalid output format\n", __func__);
 		dev_close(dev);
 		return ret;
 	}
+	ret = 0;
 
 	r = nvme_scan(NULL);
 	capabilities = wdc_get_drive_capabilities(r, dev);
@@ -10532,110 +9615,54 @@ static int wdc_log_page_directory(int argc, char **argv, struct command *command
 		fprintf(stderr, "ERROR: WDC: unsupported device for this command\n");
 		ret = -1;
 	} else {
-
-		memset(&uuid_list, 0, sizeof(struct nvme_id_uuid_list));
-		if (wdc_CheckUuidListSupport(dev, &uuid_list))
-			uuid_supported = true;
-
-		if (uuid_supported)
-			fprintf(stderr, "WDC: UUID lists supported\n");
-		else
-			fprintf(stderr, "WDC: UUID lists NOT supported\n");
-
-
 		ret = wdc_get_pci_ids(r, dev, &device_id, &read_vendor_id);
-		log_id = (device_id == WDC_NVME_ZN350_DEV_ID ||
-			  device_id == WDC_NVME_ZN350_DEV_ID_1) ?
-			WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID_C8 :
-			WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_ID;
-
-		if (!wdc_is_sn861(device_id)) {
-			/* verify the 0xC2 Device Manageability log page is supported */
-			if (wdc_nvme_check_supported_log_page(r, dev, log_id) == false) {
-				fprintf(stderr,
-					"%s: ERROR: WDC: 0x%x Log Page not supported\n",
-					__func__, log_id);
-				ret = -1;
-				goto out;
-			}
-
-			if (!get_dev_mgment_cbs_data(r, dev,
-						    WDC_C2_LOG_PAGES_SUPPORTED_ID,
-						    (void *)&cbs_data)) {
-				fprintf(stderr,
-					"%s: ERROR: WDC: 0xC2 Log Page entry ID 0x%x not found\n",
-					__func__, WDC_C2_LOG_PAGES_SUPPORTED_ID);
-				ret = -1;
-				goto out;
-			}
-			if (!cbs_data) {
-				fprintf(stderr, "%s: ERROR: WDC: NULL_data ptr\n", __func__);
-				ret = -1;
-				goto out;
-			}
-			printf("Log Page Directory\n");
-			/* print the supported pages */
-			if (!strcmp(cfg.output_format, "normal")) {
-				for (i = 0; i < le32_to_cpu(cbs_data->length); i++)
-					printf("0x%x  - %s\n", cbs_data->data[i],
-					       nvme_log_id_to_string(cbs_data->data[i]));
-			} else if (!strcmp(cfg.output_format, "binary")) {
-				d((__u8 *)cbs_data->data,
-				  le32_to_cpu(cbs_data->length), 16, 1);
-			} else if (!strcmp(cfg.output_format, "json")) {
-				struct json_object *root = json_create_object();
-
-				for (i = 0; i < le32_to_cpu(cbs_data->length); i++) {
-					json_object_add_value_int(root,
-						nvme_log_id_to_string(cbs_data->data[i]),
-						cbs_data->data[i]);
-				}
-
-				json_print_object(root, NULL);
-				printf("\n");
-				json_free_object(root);
-			} else {
-				fprintf(stderr,
-					"%s: ERROR: WDC: Invalid format, format = %s\n",
-					__func__, cfg.output_format);
-			}
-
-			free(cbs_data);
-		} else {
-			struct log_page_directory *dir;
-			void *data = NULL;
-			__u32 result;
-
-			if (posix_memalign(&data, getpagesize(), 512)) {
-				fprintf(stderr,
-					"can not allocate log page directory payload\n");
-				ret = ENOMEM;
-				goto out;
-			}
-
-			dir = (struct log_page_directory *)data;
-			ret = nvme_admin_passthru(dev_fd(dev), WDC_NVME_ADMIN_VUC_OPCODE_D2, 0, 0,
-					0, 0, 0, 8,
-					0, WDC_VUC_SUBOPCODE_LOG_PAGE_DIR_D2, 0, 0, 0,
-					32, data, 0, NULL,
-					0, &result);
-
-			if (!ret) {
-				switch (fmt) {
-				case BINARY:
-					d_raw((unsigned char *)data, 32);
-					break;
-				case JSON:
-					__json_log_page_directory(dir);
-					break;
-				default:
-					__show_log_page_directory(dir);
-				}
-			} else {
-				fprintf(stderr, "NVMe Status:%s(%x)\n",
-					nvme_status_to_string(ret, false), ret);
-			}
+		log_id = (device_id == WDC_NVME_ZN350_DEV_ID || device_id == WDC_NVME_ZN350_DEV_ID_1) ?
+			WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE_C8 : WDC_NVME_GET_DEV_MGMNT_LOG_PAGE_OPCODE;
+		/* verify the 0xC2 Device Manageability log page is supported */
+		if (wdc_nvme_check_supported_log_page(r, dev, log_id) == false) {
+			fprintf(stderr, "%s: ERROR: WDC: 0x%x Log Page not supported\n", __func__, log_id);
+			ret = -1;
+			goto out;
 		}
+
+		if (get_dev_mgment_cbs_data(r, dev, WDC_C2_LOG_PAGES_SUPPORTED_ID, (void *)&cbs_data)) {
+			if (cbs_data) {
+				printf("Log Page Directory\n");
+				/* print the supported pages */
+				if (!strcmp(cfg.output_format, "normal")) {
+					for (i = 0; i < le32_to_cpu(cbs_data->length); i++)
+						printf("0x%x  - %s\n", cbs_data->data[i],
+						       nvme_log_id_to_string(cbs_data->data[i]));
+				} else if (!strcmp(cfg.output_format, "binary")) {
+					d((__u8 *)cbs_data->data, le32_to_cpu(cbs_data->length), 16,
+					  1);
+				} else if (!strcmp(cfg.output_format, "json")) {
+					struct json_object *root = json_create_object();
+
+					for (i = 0; i < le32_to_cpu(cbs_data->length); i++)
+						json_object_add_value_int(root,
+									  nvme_log_id_to_string(cbs_data->data[i]),
+									  cbs_data->data[i]);
+
+					json_print_object(root, NULL);
+					printf("\n");
+					json_free_object(root);
+				} else {
+					fprintf(stderr,
+						"%s: ERROR: WDC: Invalid format, format = %s\n",
+						__func__, cfg.output_format);
+				}
+
+				free(cbs_data);
+			} else {
+				fprintf(stderr, "%s: ERROR: WDC: NULL_data ptr\n", __func__);
+			}
+		} else {
+			fprintf(stderr, "%s: ERROR: WDC: 0xC2 Log Page entry ID 0x%x not found\n",
+				__func__, WDC_C2_LOG_PAGES_SUPPORTED_ID);
+		}
+
+
 	}
 
 out:
@@ -11149,21 +10176,22 @@ static void wdc_print_pcie_stats_json(struct wdc_vs_pcie_stats *pcie_stats)
 
 static int wdc_do_vs_nand_stats_sn810_2(struct nvme_dev *dev, char *format)
 {
-	enum nvme_print_flags fmt;
-	uint8_t *data = NULL;
 	int ret;
+	int fmt = -1;
+	uint8_t *data = NULL;
 
 	data = NULL;
 	ret = nvme_get_ext_smart_cloud_log(dev_fd(dev), &data, 0,
 					   NVME_NSID_ALL);
 
 	if (ret) {
-		fprintf(stderr, "ERROR: WDC: %s : Failed to retrieve NAND stats\n", __func__);
+		fprintf(stderr, "ERROR: WDC: %s : Failed to retreive NAND stats\n", __func__);
 		goto out;
 	} else {
-		ret = validate_output_format(format, &fmt);
-		if (ret < 0) {
+		fmt = validate_output_format(format);
+		if (fmt < 0) {
 			fprintf(stderr, "ERROR: WDC: %s : invalid output format\n", __func__);
+			ret = fmt;
 			goto out;
 		}
 
@@ -11174,8 +10202,6 @@ static int wdc_do_vs_nand_stats_sn810_2(struct nvme_dev *dev, char *format)
 			break;
 		case JSON:
 			wdc_print_ext_smart_cloud_log_json(data, WDC_SCA_V1_NAND_STATS);
-			break;
-		default:
 			break;
 		}
 	}
@@ -11188,10 +10214,10 @@ out:
 
 static int wdc_do_vs_nand_stats(struct nvme_dev *dev, char *format)
 {
-	enum nvme_print_flags fmt;
+	int ret;
+	int fmt = -1;
 	uint8_t *output = NULL;
 	__u16 version = 0;
-	int ret;
 
 	output = (uint8_t *)calloc(WDC_NVME_NAND_STATS_SIZE, sizeof(uint8_t));
 	if (!output) {
@@ -11203,12 +10229,13 @@ static int wdc_do_vs_nand_stats(struct nvme_dev *dev, char *format)
 	ret = nvme_get_log_simple(dev_fd(dev), WDC_NVME_NAND_STATS_LOG_ID,
 				  WDC_NVME_NAND_STATS_SIZE, (void *)output);
 	if (ret) {
-		fprintf(stderr, "ERROR: WDC: %s : Failed to retrieve NAND stats\n", __func__);
+		fprintf(stderr, "ERROR: WDC: %s : Failed to retreive NAND stats\n", __func__);
 		goto out;
 	} else {
-		ret = validate_output_format(format, &fmt);
-		if (ret < 0) {
+		fmt = validate_output_format(format);
+		if (fmt < 0) {
 			fprintf(stderr, "ERROR: WDC: invalid output format\n");
+			ret = fmt;
 			goto out;
 		}
 
@@ -11221,8 +10248,6 @@ static int wdc_do_vs_nand_stats(struct nvme_dev *dev, char *format)
 			break;
 		case JSON:
 			wdc_print_nand_stats_json(version, output);
-			break;
-		default:
 			break;
 		}
 	}
@@ -11312,14 +10337,14 @@ static int wdc_vs_pcie_stats(int argc, char **argv, struct command *command,
 		struct plugin *plugin)
 {
 	const char *desc = "Retrieve PCIE statistics.";
-	enum nvme_print_flags fmt;
 	struct nvme_dev *dev;
+	int ret = 0;
 	nvme_root_t r;
-	int ret;
 	__u64 capabilities = 0;
-	_cleanup_huge_ struct nvme_mem_huge mh = { 0, };
+	int fmt = -1;
 	struct wdc_vs_pcie_stats *pcieStatsPtr = NULL;
 	int pcie_stats_size = sizeof(struct wdc_vs_pcie_stats);
+	bool huge;
 
 	struct config {
 		char *output_format;
@@ -11338,14 +10363,16 @@ static int wdc_vs_pcie_stats(int argc, char **argv, struct command *command,
 	if (ret)
 		return ret;
 
+
 	r = nvme_scan(NULL);
-	ret = validate_output_format(cfg.output_format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(cfg.output_format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
+		ret = fmt;
 		goto out;
 	}
 
-	pcieStatsPtr = nvme_alloc_huge(pcie_stats_size, &mh);
+	pcieStatsPtr = nvme_alloc(pcie_stats_size, &huge);
 	if (!pcieStatsPtr) {
 		fprintf(stderr, "ERROR: WDC: PCIE Stats alloc: %s\n", strerror(errno));
 		ret = -1;
@@ -11372,11 +10399,12 @@ static int wdc_vs_pcie_stats(int argc, char **argv, struct command *command,
 			case JSON:
 				wdc_print_pcie_stats_json(pcieStatsPtr);
 				break;
-			default:
-				break;
 			}
 		}
 	}
+
+	nvme_free(pcieStatsPtr, huge);
+
 out:
 	nvme_free_tree(r);
 	dev_close(dev);
@@ -11387,7 +10415,6 @@ static int wdc_vs_drive_info(int argc, char **argv,
 		struct command *command, struct plugin *plugin)
 {
 	const char *desc = "Send a vs-drive-info command.";
-	enum nvme_print_flags fmt;
 	nvme_root_t r;
 	uint64_t capabilities = 0;
 	struct nvme_dev *dev;
@@ -11401,14 +10428,12 @@ static int wdc_vs_drive_info(int argc, char **argv,
 	__u8 *data = NULL;
 	__u32 ftl_unit_size = 0, tcg_dev_ownership = 0;
 	__u16 boot_spec_major = 0, boot_spec_minor = 0;
+	int fmt = -1;
 	struct json_object *root = NULL;
 	char formatter[41] = { 0 };
 	char rev_str[16] = { 0 };
 	uint32_t read_device_id = -1, read_vendor_id = -1;
 	struct __packed wdc_nvme_ext_smart_log * ext_smart_log_ptr = NULL;
-	struct ocp_drive_info info;
-	__u32 data_len = 0;
-	unsigned int num_dwords = 0;
 
 	struct config {
 		char *output_format;
@@ -11427,11 +10452,11 @@ static int wdc_vs_drive_info(int argc, char **argv,
 	if (ret)
 		return ret;
 
-	ret = validate_output_format(cfg.output_format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(cfg.output_format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC %s invalid output format\n", __func__);
 		dev_close(dev);
-		return ret;
+		return fmt;
 	}
 
 	/* get the id ctrl data used to fill in drive info below */
@@ -11477,13 +10502,13 @@ static int wdc_vs_drive_info(int argc, char **argv,
 				rev = (double)(cpu_to_le32(result) & 0x0000ffff);
 
 				if (fmt == NORMAL) {
-					printf("Drive HW Revision: %4.1f\n", (.1 * rev));
+					printf("Drive HW Revison: %4.1f\n", (.1 * rev));
 					printf("FTL Unit Size:     0x%x KB\n", size);
 					printf("Customer SN:        %-.*s\n", (int)sizeof(ctrl.sn), &ctrl.sn[0]);
 				} else if (fmt == JSON) {
 					root = json_create_object();
 					sprintf(rev_str, "%4.1f", (.1 * rev));
-					json_object_add_value_string(root, "Drive HW Revision", rev_str);
+					json_object_add_value_string(root, "Drive HW Revison", rev_str);
 
 					json_object_add_value_int(root, "FTL Unit Size", le16_to_cpu(size));
 					wdc_StrFormat(formatter, sizeof(formatter), &ctrl.sn[0], sizeof(ctrl.sn));
@@ -11586,52 +10611,6 @@ static int wdc_vs_drive_info(int argc, char **argv,
 			}
 
 			break;
-		case WDC_NVME_SN861_DEV_ID:
-			fallthrough;
-		case WDC_NVME_SN861_DEV_ID_1:
-			data_len = sizeof(info);
-			num_dwords = data_len / 4;
-			if (data_len % 4 != 0)
-				num_dwords += 1;
-
-			ret = nvme_admin_passthru(dev_fd(dev),
-						  WDC_NVME_ADMIN_VUC_OPCODE_D2,
-						  0, 0, 0, 0, 0, num_dwords, 0,
-						  WDC_VUC_SUBOPCODE_VS_DRIVE_INFO_D2,
-						  0, 0, 0, data_len, &info, 0,
-						  NULL, 0, NULL);
-
-			if (!ret) {
-				__u16 hw_rev_major, hw_rev_minor;
-
-				hw_rev_major = le32_to_cpu(info.hw_revision) / 10;
-				hw_rev_minor = le32_to_cpu(info.hw_revision) % 10;
-				if (fmt == NORMAL) {
-					printf("HW Revision   : %" PRIu32 ".%" PRIu32 "\n",
-					       hw_rev_major, hw_rev_minor);
-					printf("FTL Unit Size : %" PRIu32 "\n",
-					       le32_to_cpu(info.ftl_unit_size));
-				} else if (fmt == JSON) {
-					char buf[20];
-
-					root = json_create_object();
-
-					memset((void *)buf, 0, 20);
-					sprintf(buf, "%" PRIu32 ".%" PRIu32,
-						hw_rev_major, hw_rev_minor);
-
-					json_object_add_value_string(root,
-						"hw_revision", buf);
-					json_object_add_value_uint(root,
-						"ftl_unit_size",
-						le32_to_cpu(info.ftl_unit_size));
-
-					json_print_object(root, NULL);
-					printf("\n");
-					json_free_object(root);
-				}
-			}
-			break;
 		default:
 			fprintf(stderr, "ERROR: WDC: unsupported device for this command\n");
 			ret = -1;
@@ -11655,13 +10634,12 @@ static int wdc_vs_temperature_stats(int argc, char **argv,
 	const char *desc = "Send a vs-temperature-stats command.";
 	struct nvme_smart_log smart_log;
 	struct nvme_id_ctrl id_ctrl;
-	enum nvme_print_flags fmt;
 	struct nvme_dev *dev;
 	nvme_root_t r;
 	uint64_t capabilities = 0;
 	__u32 hctm_tmt;
 	int temperature, temp_tmt1, temp_tmt2;
-	int ret;
+	int ret, fmt = -1;
 
 	struct config {
 		char *output_format;
@@ -11681,9 +10659,10 @@ static int wdc_vs_temperature_stats(int argc, char **argv,
 		return ret;
 
 	r = nvme_scan(NULL);
-	ret = validate_output_format(cfg.output_format, &fmt);
-	if (ret < 0) {
+	fmt = validate_output_format(cfg.output_format);
+	if (fmt < 0) {
 		fprintf(stderr, "ERROR: WDC: invalid output format\n");
+		ret = fmt;
 		goto out;
 	}
 
@@ -11865,8 +10844,6 @@ static int wdc_capabilities(int argc, char **argv, struct command *command, stru
 	       capabilities & WDC_DRIVE_CAP_HW_REV_LOG_PAGE ? "Supported" : "Not Supported");
 	printf("vs-device_waf                 : %s\n",
 	       capabilities & WDC_DRIVE_CAP_DEVICE_WAF ? "Supported" : "Not Supported");
-	printf("set-latency-monitor-feature   : %s\n",
-	       capabilities & WDC_DRIVE_CAP_SET_LATENCY_MONITOR ? "Supported" : "Not Supported");
 	printf("capabilities                  : Supported\n");
 	nvme_free_tree(r);
 	dev_close(dev);
@@ -12235,161 +11212,5 @@ static int wdc_enc_get_nic_log(struct nvme_dev *dev, __u8 log_id, __u32 xfer_siz
 	}
 	fwrite(dump_data, data_len, 1, out);
 	free(dump_data);
-	return ret;
-}
-
-//------------------------------------------------------------------------------------
-// Description: set latency monitor feature
-//
-int wdc_set_latency_monitor_feature(int argc, char **argv, struct command *cmd,
-				    struct plugin *plugin)
-{
-	const char *desc = "Set Latency Monitor feature.";
-
-	uint64_t capabilities = 0;
-	struct nvme_dev *dev;
-	nvme_root_t r;
-	int ret;
-	__u32 result;
-	struct feature_latency_monitor buf = {0,};
-
-	const char *active_bucket_timer_threshold =
-		"This is the value that loads the Active Bucket Timer Threshold.";
-	const char *active_threshold_a =
-		"This is the value that loads into the Active Threshold A.";
-	const char *active_threshold_b =
-		"This is the value that loads into the Active Threshold B.";
-	const char *active_threshold_c =
-		"This is the value that loads into the Active Threshold C.";
-	const char *active_threshold_d =
-		"This is the value that loads into the Active Threshold D.";
-	const char *active_latency_config =
-		"This is the value that loads into the Active Latency Configuration.";
-	const char *active_latency_minimum_window =
-		"This is the value that loads into the Active Latency Minimum Window.";
-	const char *debug_log_trigger_enable =
-		"This is the value that loads into the Debug Log Trigger Enable.";
-	const char *discard_debug_log = "Discard Debug Log.";
-	const char *latency_monitor_feature_enable = "Latency Monitor Feature Enable.";
-
-	struct config {
-		__u16 active_bucket_timer_threshold;
-		__u8 active_threshold_a;
-		__u8 active_threshold_b;
-		__u8 active_threshold_c;
-		__u8 active_threshold_d;
-		__u16 active_latency_config;
-		__u8 active_latency_minimum_window;
-		__u16 debug_log_trigger_enable;
-		__u8 discard_debug_log;
-		__u8 latency_monitor_feature_enable;
-	};
-
-	struct config cfg = {
-		.active_bucket_timer_threshold = 0x7E0,
-		.active_threshold_a = 0x5,
-		.active_threshold_b = 0x13,
-		.active_threshold_c = 0x1E,
-		.active_threshold_d = 0x2E,
-		.active_latency_config = 0xFFF,
-		.active_latency_minimum_window = 0xA,
-		.debug_log_trigger_enable = 0,
-		.discard_debug_log = 0,
-		.latency_monitor_feature_enable = 0x7,
-	};
-
-	OPT_ARGS(opts) = {
-		OPT_UINT("active_bucket_timer_threshold", 't',
-			&cfg.active_bucket_timer_threshold,
-			active_bucket_timer_threshold),
-		OPT_UINT("active_threshold_a", 'a', &cfg.active_threshold_a,
-			active_threshold_a),
-		OPT_UINT("active_threshold_b", 'b', &cfg.active_threshold_b,
-			active_threshold_b),
-		OPT_UINT("active_threshold_c", 'c', &cfg.active_threshold_c,
-			active_threshold_c),
-		OPT_UINT("active_threshold_d", 'd', &cfg.active_threshold_d,
-			active_threshold_d),
-		OPT_UINT("active_latency_config", 'f',
-			&cfg.active_latency_config, active_latency_config),
-		OPT_UINT("active_latency_minimum_window", 'w',
-			&cfg.active_latency_minimum_window,
-			active_latency_minimum_window),
-		OPT_UINT("debug_log_trigger_enable", 'r',
-			&cfg.debug_log_trigger_enable, debug_log_trigger_enable),
-		OPT_UINT("discard_debug_log", 'l', &cfg.discard_debug_log,
-			discard_debug_log),
-		OPT_UINT("latency_monitor_feature_enable", 'e',
-			&cfg.latency_monitor_feature_enable,
-			latency_monitor_feature_enable),
-		OPT_END()
-	};
-
-	ret = parse_and_open(&dev, argc, argv, desc, opts);
-
-	if (ret < 0)
-		return ret;
-
-	/* get capabilities */
-	r = nvme_scan(NULL);
-	wdc_check_device(r, dev);
-	capabilities = wdc_get_drive_capabilities(r, dev);
-
-	if (!(capabilities & WDC_DRIVE_CAP_SET_LATENCY_MONITOR)) {
-		fprintf(stderr, "ERROR: WDC: unsupported device for this command\n");
-		return -1;
-	}
-
-	memset(&buf, 0, sizeof(struct feature_latency_monitor));
-
-	buf.active_bucket_timer_threshold = cfg.active_bucket_timer_threshold;
-	buf.active_threshold_a = cfg.active_threshold_a;
-	buf.active_threshold_b = cfg.active_threshold_b;
-	buf.active_threshold_c = cfg.active_threshold_c;
-	buf.active_threshold_d = cfg.active_threshold_d;
-	buf.active_latency_config = cfg.active_latency_config;
-	buf.active_latency_minimum_window = cfg.active_latency_minimum_window;
-	buf.debug_log_trigger_enable = cfg.debug_log_trigger_enable;
-	buf.discard_debug_log = cfg.discard_debug_log;
-	buf.latency_monitor_feature_enable = cfg.latency_monitor_feature_enable;
-
-	struct nvme_set_features_args args = {
-		.args_size = sizeof(args),
-		.fd = dev_fd(dev),
-		.fid = NVME_FEAT_OCP_LATENCY_MONITOR,
-		.nsid = 0,
-		.cdw12 = 0,
-		.save = 1,
-		.data_len = sizeof(struct feature_latency_monitor),
-		.data = (void *)&buf,
-		.timeout = NVME_DEFAULT_IOCTL_TIMEOUT,
-		.result = &result,
-	};
-
-	ret = nvme_set_features(&args);
-
-	if (ret < 0) {
-		perror("set-feature");
-	} else if (!ret) {
-		printf("NVME_FEAT_OCP_LATENCY_MONITOR: 0x%02x\n",
-			NVME_FEAT_OCP_LATENCY_MONITOR);
-		printf("active bucket timer threshold: 0x%x\n",
-			buf.active_bucket_timer_threshold);
-		printf("active threshold a: 0x%x\n", buf.active_threshold_a);
-		printf("active threshold b: 0x%x\n", buf.active_threshold_b);
-		printf("active threshold c: 0x%x\n", buf.active_threshold_c);
-		printf("active threshold d: 0x%x\n", buf.active_threshold_d);
-		printf("active latency config: 0x%x\n", buf.active_latency_config);
-		printf("active latency minimum window: 0x%x\n",
-			buf.active_latency_minimum_window);
-		printf("debug log trigger enable: 0x%x\n",
-			buf.debug_log_trigger_enable);
-		printf("discard debug log: 0x%x\n", buf.discard_debug_log);
-		printf("latency monitor feature enable: 0x%x\n",
-			buf.latency_monitor_feature_enable);
-	} else if (ret > 0)
-		fprintf(stderr, "NVMe Status:%s(%x)\n",
-				nvme_status_to_string(ret, false), ret);
-
 	return ret;
 }

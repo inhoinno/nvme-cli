@@ -15,7 +15,6 @@ SYNOPSIS
 			[--nmic=<nmic> | -m <nmic>]
 			[--anagrp-id=<anagrpid> | -a <anagrpid>]
 			[--nvmset-id=<nvmsetid> | -i <nvmsetid>]
-			[--endg-id=<endgid> | -e <endgid>]
 			[--csi=<command_set_identifier> | -y <command_set_identifier>]
 			[--lbstm=<lbstm> | -l <lbstm>]
 			[--nphndls=<nphndls> | -n <nphndls>]
@@ -25,10 +24,9 @@ SYNOPSIS
 			[--ncap-si=<ncap-si> | -C <ncap-si>]
 			[--azr | -z]
 			[--rar=<rar> | -r <rar>]
-			[--ror=<ror> | -O <ror>]
+			[--ror=<ror> | -o <ror>]
 			[--rnumzrwa=<rnumzrwa> | -u <rnumzrwa>]
 			[--phndls=<placement-handle-list,> | -p <placement-handle-list,>]
-			[--output-format=<fmt> | -o <fmt>] [--verbose | -v]
 
 DESCRIPTION
 -----------
@@ -71,10 +69,6 @@ OPTIONS
 --nvmset-id=<nvmsetid>::
 	This field specifies the identifier of the NVM Set.
 
--e <endgid>::
---endg-id=<endgid>::
-	This field specifies the identifier of the endurance group.
-
 -y <command_set_identifier>::
 --csi=<command_set_identifier>::
 	This field specifies the identifier of command set.
@@ -93,8 +87,8 @@ OPTIONS
 -b::
 --block-size::
 	Target block size the new namespace should be formatted as. Potential FLBAS
-	values will be values will be scanned and the lowest numbered will be
-	selected for the create-ns operation. Conflicts with --flbas argument.
+  values will be values will be scanned and the lowest numbered will be
+  selected for the create-ns operation. Conflicts with --flbas argument.
 
 -S::
 --nsze-si::
@@ -120,7 +114,7 @@ OPTIONS
 	Requested Active Resources. This field specifies the number of active
 	resources to be allocated to the created namespace.
 
--O <ror>::
+-o <ror>::
 --ror=<ror>::
 	Requested Open Resources. This field specifies the number of open resources
 	to be allocated to the created namespace.
@@ -134,15 +128,6 @@ OPTIONS
 --phndls=<placement-handle-list,>::
 	The comma separated list of Reclaim Unit Handle Identifier to be associated
 	with each Placement Handle.
-
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json' or 'binary'. Only one
-	output format can be used at a time.
-
--v::
---verbose::
-	Increase the information detail in the output.
 
 EXAMPLES
 --------

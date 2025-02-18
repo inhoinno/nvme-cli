@@ -69,17 +69,15 @@ static char *id_to_name(__u8 id)
 	case 0xE2:
 		return "media_wear_percentage";
 	case 0xE3:
-		return "timed_work_load_host_reads";
+		return "host_reads";
 	case 0xE4:
-		return "timed_work_load_timer";
+		return "timed_work_load";
 	case 0xE5:
 		return "read_commands_in_flight_counter";
 	case 0xE6:
 		return "write_commands_in_flight_counter";
 	case 0xEA:
 		return "thermal_throttle_status";
-	case 0xEE:
-		return "re_sku_count";
 	case 0xF0:
 		return "retry_buffer_overflow_counter";
 	case 0xF3:
@@ -222,11 +220,11 @@ int solidigm_get_additional_smart_log(int argc, char **argv, struct command *cmd
 	if (err)
 		return err;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0) {
+	flags = validate_output_format(cfg.output_format);
+	if (flags == -EINVAL) {
 		fprintf(stderr, "Invalid output format '%s'\n", cfg.output_format);
 		dev_close(dev);
-		return err;
+		return flags;
 	}
 
 	uuid_index = solidigm_get_vu_uuid_index(dev);

@@ -12,7 +12,6 @@
 #include "nvme.h"
 #include "libnvme.h"
 #include "nvme-print.h"
-#include "util/cleanup.h"
 
 #define CREATE_CMD
 #include "zns.h"
@@ -136,9 +135,9 @@ static int id_ctrl(int argc, char **argv, struct command *cmd, struct plugin *pl
 	if (err)
 		return errno;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0)
-		goto close_dev;
+	err = flags = validate_output_format(cfg.output_format);
+	if (flags < 0)
+		goto close_fd;
 
 	err = nvme_zns_identify_ctrl(dev_fd(dev), &ctrl);
 	if (!err)
@@ -147,7 +146,7 @@ static int id_ctrl(int argc, char **argv, struct command *cmd, struct plugin *pl
 		nvme_show_status(err);
 	else
 		perror("zns identify controller");
-close_dev:
+close_fd:
 	dev_close(dev);
 	return err;
 }
@@ -189,9 +188,9 @@ static int id_ns(int argc, char **argv, struct command *cmd, struct plugin *plug
 	if (err)
 		return errno;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0)
-		goto close_dev;
+	flags = validate_output_format(cfg.output_format);
+	if (flags < 0)
+		goto close_fd;
 	if (cfg.vendor_specific)
 		flags |= VS;
 	if (cfg.human_readable)
@@ -201,14 +200,14 @@ static int id_ns(int argc, char **argv, struct command *cmd, struct plugin *plug
 		err = nvme_get_nsid(dev_fd(dev), &cfg.namespace_id);
 		if (err < 0) {
 			perror("get-namespace-id");
-			goto close_dev;
+			goto close_fd;
 		}
 	}
 
 	err = nvme_identify_ns(dev_fd(dev), cfg.namespace_id, &id_ns);
 	if (err) {
 		nvme_show_status(err);
-		goto close_dev;
+		goto close_fd;
 	}
 
 	err = nvme_zns_identify_ns(dev_fd(dev), cfg.namespace_id, &ns);
@@ -218,7 +217,7 @@ static int id_ns(int argc, char **argv, struct command *cmd, struct plugin *plug
 		nvme_show_status(err);
 	else
 		perror("zns identify namespace");
-close_dev:
+close_fd:
 	dev_close(dev);
 	return err;
 }
@@ -561,7 +560,7 @@ static int set_zone_desc(int argc, char **argv, struct command *cmd, struct plug
 	const char *desc = "Set Zone Descriptor Extension\n";
 	const char *zslba = "starting LBA of the zone for this command";
 	const char *zrwaa = "Allocate Zone Random Write Area to zone";
-	const char *data = "optional file for zone extension data (default stdin)";
+	const char *data = "optional file for zone extention data (default stdin)";
 	const char *timeout = "timeout value, in milliseconds";
 
 	int ffd = STDIN_FILENO, err;
@@ -604,7 +603,7 @@ static int set_zone_desc(int argc, char **argv, struct command *cmd, struct plug
 
 	if (!data_len || data_len < 0) {
 		fprintf(stderr,
-			"zone format does not provide descriptor extension\n");
+			"zone format does not provide descriptor extention\n");
 		errno = EINVAL;
 		err = -1;
 		goto close_dev;
@@ -766,8 +765,8 @@ static int zone_mgmt_recv(int argc, char **argv, struct command *cmd, struct plu
 	if (err)
 		return errno;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0)
+	flags = validate_output_format(cfg.output_format);
+	if (flags < 0)
 		goto close_dev;
 
 	if (!cfg.namespace_id) {
@@ -834,20 +833,20 @@ static int report_zones(int argc, char **argv, struct command *cmd, struct plugi
 	int zdes = 0, err = -1;
 	struct nvme_dev *dev;
 	__u32 report_size;
+	bool huge = false;
 	struct nvme_zone_report *report, *buff;
-	_cleanup_huge_ struct nvme_mem_huge mh = { 0, };
 
 	unsigned int nr_zones_chunks = 1024,   /* 1024 entries * 64 bytes per entry = 64k byte transfer */
 			nr_zones_retrieved = 0,
 			nr_zones,
+			offset,
 			log_len;
-	__u64 offset;
 	int total_nr_zones = 0;
 	struct nvme_zns_id_ns id_zns;
 	struct nvme_id_ns id_ns;
 	uint8_t lbaf;
 	__le64	zsze;
-	struct json_object *zone_list = NULL;
+	struct json_object *zone_list = 0;
 
 	struct config {
 		char *output_format;
@@ -881,8 +880,8 @@ static int report_zones(int argc, char **argv, struct command *cmd, struct plugi
 	if (err)
 		return errno;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0)
+	flags = validate_output_format(cfg.output_format);
+	if (flags < 0)
 		goto close_dev;
 	if (cfg.verbose)
 		flags |= VERBOSE;
@@ -950,7 +949,7 @@ static int report_zones(int argc, char **argv, struct command *cmd, struct plugi
 	log_len = sizeof(struct nvme_zone_report) + ((sizeof(struct nvme_zns_desc) * nr_zones_chunks) + (nr_zones_chunks * zdes));
 	report_size = log_len;
 
-	report = nvme_alloc_huge(report_size, &mh);
+	report = nvme_alloc(report_size, &huge);
 	if (!report) {
 		perror("alloc");
 		err = -ENOMEM;
@@ -958,8 +957,10 @@ static int report_zones(int argc, char **argv, struct command *cmd, struct plugi
 	}
 
 	offset = cfg.zslba;
-
-	nvme_zns_start_zone_list(total_nr_zones, &zone_list, flags);
+	if (flags & JSON)
+		zone_list = json_create_array();
+	else
+		printf("nr_zones: %"PRIu64"\n", (uint64_t)le64_to_cpu(total_nr_zones));
 
 	while (nr_zones_retrieved < nr_zones) {
 		if (nr_zones_retrieved >= nr_zones)
@@ -988,7 +989,15 @@ static int report_zones(int argc, char **argv, struct command *cmd, struct plugi
 		offset = le64_to_cpu(report->entries[nr_zones_chunks-1].zslba) + zsze;
 	}
 
-	nvme_zns_finish_zone_list(total_nr_zones, zone_list, flags);
+	if (flags & JSON) {
+		struct print_ops *ops;
+
+		ops = nvme_get_json_print_ops(flags);
+		if (ops)
+			ops->zns_finish_zone_list(total_nr_zones, zone_list);
+	}
+
+	nvme_free(report, huge);
 
 free_buff:
 	free(buff);
@@ -1247,15 +1256,15 @@ static int changed_zone_list(int argc, char **argv, struct command *cmd, struct 
 	if (err)
 		return errno;
 
-	err = validate_output_format(cfg.output_format, &flags);
-	if (err < 0)
-		goto close_dev;
+	flags = validate_output_format(cfg.output_format);
+	if (flags < 0)
+		goto close_fd;
 
 	if (!cfg.namespace_id) {
 		err = nvme_get_nsid(dev_fd(dev), &cfg.namespace_id);
 		if (err < 0) {
 			perror("get-namespace-id");
-			goto close_dev;
+			goto close_fd;
 		}
 	}
 
@@ -1268,7 +1277,7 @@ static int changed_zone_list(int argc, char **argv, struct command *cmd, struct 
 	else
 		perror("zns changed-zone-list");
 
-close_dev:
+close_fd:
 	dev_close(dev);
 	return err;
 }

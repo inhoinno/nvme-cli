@@ -21,7 +21,6 @@
 #include "linux/types.h"
 #include "nvme-wrap.h"
 #include "nvme-print.h"
-#include "util/cleanup.h"
 
 #define CREATE_CMD
 #include "sfx-nvme.h"
@@ -882,7 +881,7 @@ static int change_sanity_check(int fd, __u64 trg_in_4k, int *shrink)
 	if (trg_in_4k < provisoned_cap_4k ||
 	    trg_in_4k > ((__u64)provisoned_cap_4k * 4)) {
 		fprintf(stderr,
-			"WARNING: Only support 1.0~4.0 x provisioned capacity!\n");
+			"WARNING: Only support 1.0~4.0 x provisoned capacity!\n");
 		if (trg_in_4k < provisoned_cap_4k)
 			fprintf(stderr,
 				"WARNING: The target capacity is less than 1.0 x provisioned capacity!\n");
@@ -925,7 +924,7 @@ static int change_sanity_check(int fd, __u64 trg_in_4k, int *shrink)
  *
  * @param str, prompt string
  *
- * @return 0, canceled; 1 confirmed
+ * @return 0, cancled; 1 confirmed
  */
 static int sfx_confirm_change(const char *str)
 {
@@ -937,7 +936,7 @@ static int sfx_confirm_change(const char *str)
 	fprintf(stderr, "Confirm Y/y, Others cancel:\n");
 	confirm = (unsigned char)fgetc(stdin);
 	if (confirm != 'y' && confirm != 'Y') {
-		fprintf(stderr, "Canceled.\n");
+		fprintf(stderr, "Cancled.\n");
 		return 0;
 	}
 	fprintf(stderr, "Sending operation ...\n");
@@ -1350,12 +1349,12 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 {
 	struct nvme_persistent_event_log *pevent;
 	void *pevent_log_info;
-	_cleanup_huge_ struct nvme_mem_huge mh = { 0, };
 	__u8  lsp_base;
 	__u32 offset = 0;
 	__u32 length = 0;
 	__u32 log_len;
 	__u32 single_len;
+	bool huge;
 	int  err = 0;
 	FILE *fd = NULL;
 	struct nvme_get_log_args args = {
@@ -1411,7 +1410,7 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 	if (log_len % 4)
 		log_len = (log_len / 4 + 1) * 4;
 
-	pevent_log_info = nvme_alloc_huge(single_len, &mh);
+	pevent_log_info = nvme_alloc(single_len, &huge);
 	if (!pevent_log_info) {
 		err = -ENOMEM;
 		goto free_pevent;
@@ -1421,7 +1420,7 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 	if (!fd) {
 		fprintf(stderr, "Failed to open %s file to write\n", file);
 		err = ENOENT;
-		goto free_pevent;
+		goto free;
 	}
 
 	args.lsp = lsp_base + NVME_PEVENT_LOG_READ;
@@ -1454,8 +1453,8 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 	printf("\nDump-evtlog: Success\n");
 
 	if (parse) {
-		nvme_free_huge(&mh);
-		pevent_log_info = nvme_alloc_huge(log_len, &mh);
+		nvme_free(pevent_log_info, huge);
+		pevent_log_info = nvme_alloc(log_len, &huge);
 		if (!pevent_log_info) {
 			fprintf(stderr, "Failed to alloc enough memory 0x%x to parse evtlog\n", log_len);
 			err = -ENOMEM;
@@ -1467,7 +1466,7 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 		if (!fd) {
 			fprintf(stderr, "Failed to open %s file to read\n", file);
 			err = ENOENT;
-			goto free_pevent;
+			goto free;
 		}
 		if (fread(pevent_log_info, 1, log_len, fd) != log_len) {
 			fprintf(stderr, "Failed to read evtlog to buffer\n");
@@ -1479,6 +1478,8 @@ static int nvme_dump_evtlog(struct nvme_dev *dev, __u32 namespace_id, __u32 stor
 
 close_fd:
 	fclose(fd);
+free:
+	nvme_free(pevent_log_info, huge);
 free_pevent:
 	free(pevent);
 ret:

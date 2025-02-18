@@ -411,8 +411,8 @@ int solidigm_get_latency_tracking_log(int argc, char **argv, struct command *cmd
 
 	lt.fd = dev_fd(dev);
 
-	err = validate_output_format(lt.cfg.output_format, &lt.print_flags);
-	if (err < 0) {
+	lt.print_flags = validate_output_format(lt.cfg.output_format);
+	if (lt.print_flags == -EINVAL) {
 		fprintf(stderr, "Invalid output format '%s'\n", lt.cfg.output_format);
 		dev_close(dev);
 		return -EINVAL;

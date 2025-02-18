@@ -15,7 +15,7 @@ SYNOPSIS
 				 [--extended | -e]
 				 [--partial | -p]
 				 [--verbose | -v]
-				 [--output-format=<fmt> | -o <fmt>]
+				 [--output-format=<FMT> | -o <FMT>]
 
 DESCRIPTION
 -----------
@@ -76,10 +76,10 @@ OPTIONS
 --verbose::
 	Increase the information detail in the output.
 
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json', or
-	'binary'. Only one output format can be used at a time.
+-o <format>::
+--output-format=<format>::
+              Set the reporting format to 'normal', 'json', or
+              'binary'. Only one output format can be used at a time.
 
 EXAMPLES
 --------

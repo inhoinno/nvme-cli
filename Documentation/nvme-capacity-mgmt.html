@@ -740,7 +740,7 @@ nvme-capacity-mgmt(1) Manual Page
 <h2>NAME</h2>
 <div class="sectionbody">
 <p>nvme-capacity-mgmt -
-   Send capacity management command to configure/create/delete Endurance Groups or NVM Sets, returns results.
+   Send capacity management command to configure/create/delete                      Endurance Groups or NVM Sets, returns results.
 </p>
 </div>
 </div>
@@ -749,11 +749,10 @@ nvme-capacity-mgmt(1) Manual Page
 <h2 id="_synopsis">SYNOPSIS</h2>
 <div class="sectionbody">
 <div class="verseblock">
-<pre class="content"><em>nvme capacity-mgmt</em> &lt;device&gt; [--operation=&lt;operation&gt; | -O &lt;operation&gt;]
+<pre class="content"><em>nvme capacity-mgmt</em> &lt;device&gt; [--operation=&lt;operation&gt; | -o &lt;operation&gt;]
                         [--element-id=&lt;element-id&gt; | -i &lt;element-id&gt;]
                         [--cap-lower=&lt;cap-lower&gt; | -l &lt;cap-lower&gt;]
-                        [--cap-upper=&lt;cap-upper&gt; | -u &lt;cap-upper&gt;]
-                        [--output-format=&lt;fmt&gt; | -o &lt;fmt&gt;] [--verbose | -v]</pre>
+                        [--cap-upper=&lt;cap-upper&gt; | -u &lt;cap-upper&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -775,14 +774,14 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 <div class="sectionbody">
 <div class="dlist"><dl>
 <dt class="hdlist1">
--O &lt;operation&gt;
+-o &lt;operation&gt;
 </dt>
 <dt class="hdlist1">
 --operation=&lt;operation&gt;
 </dt>
 <dd>
 <p>
-        Operation to be performed by the controller
+    Operation to be performed by the controller
 </p>
 </dd>
 <dt class="hdlist1">
@@ -793,7 +792,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 </dt>
 <dd>
 <p>
-        Value specific to the value of the Operation field.
+    Value specific to the value of the Operation field.
 </p>
 </dd>
 <dt class="hdlist1">
@@ -805,7 +804,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 <dd>
 <p>
         Least significant 32 bits of the capacity in bytes of the Endurance Group or
-        NVM Set to be created
+    NVM Set to be created
 </p>
 </dd>
 <dt class="hdlist1">
@@ -817,30 +816,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 <dd>
 <p>
         Most significant 32 bits of the capacity in bytes of the Endurance Group or
-        NVM Set to be created
-</p>
-</dd>
-<dt class="hdlist1">
--o &lt;fmt&gt;
-</dt>
-<dt class="hdlist1">
---output-format=&lt;fmt&gt;
-</dt>
-<dd>
-<p>
-        Set the reporting format to <em>normal</em>, <em>json</em> or <em>binary</em>. Only one
-        output format can be used at a time.
-</p>
-</dd>
-<dt class="hdlist1">
--v
-</dt>
-<dt class="hdlist1">
---verbose
-</dt>
-<dd>
-<p>
-        Increase the information detail in the output.
+    NVM Set to be created
 </p>
 </dd>
 </dl></div>
@@ -863,7 +839,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2023-12-21 15:49:29 CET
+ 2023-06-30 15:20:22 CEST
 </div>
 </div>
 </body>

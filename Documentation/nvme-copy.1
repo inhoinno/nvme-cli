@@ -2,12 +2,12 @@
 .\"     Title: nvme-copy
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 12/21/2023
+.\"      Date: 06/30/2023
 .\"    Manual: NVMe Manual
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-COPY" "1" "12/21/2023" "NVMe" "NVMe Manual"
+.TH "NVME\-COPY" "1" "06/30/2023" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -35,8 +35,6 @@ nvme-copy \- Send an NVMe Simple Copy command, provide results
 \fInvme\-copy\fR <device> [\-\-sdlba=<sdlba> | \-d <sdlba>]
                         [\-\-blocks=<nlb\-list,> | \-b <nlb\-list,>]
                         [\-\-slbs=<slbas,> | \-s <slbas,>]
-                        [\-\-snsids=<snsids,> | \-N <snsids,>]
-                        [\-\-sopts=<sopts,> | \-O <sopts,>]
                         [\-\-limited\-retry | \-l]
                         [\-\-force\-unit\-access | \-f]
                         [\-\-prinfow=<prinfow> | \-p <prinfow>]
@@ -50,115 +48,90 @@ nvme-copy \- Send an NVMe Simple Copy command, provide results
                         [\-\-dir\-type=<type> | \-T <type>]
                         [\-\-dir\-spec=<spec> | \-S <spec>]
                         [\-\-format=<entry\-format> | \-F <entry\-format>]
-                        [\-\-output\-format=<fmt> | \-o <fmt>] [\-\-verbose | \-v]
 .fi
 .SH "DESCRIPTION"
 .sp
 The Copy command is used by the host to copy data from one or more source logical block ranges to a single consecutive destination logical block range\&.
 .SH "OPTIONS"
 .PP
-\-d <sdlba>, \-\-sdlba=<sdlba>
+\-\-sdlba=<sdlba>, \-d <sdlba>
 .RS 4
 64\-bit addr of first destination logical block
 .RE
 .PP
-\-b <nlb\-list,>, \-\-blocks=<nlb\-list,>
+\-\-blocks=<nlb\-list,>, \-b <nlb\-list,>
 .RS 4
 Comma separated list of the number of blocks in each range
 .RE
 .PP
-\-s <slbas,>, \-\-slbs=<slbas,>
+\-\-slbs=<slbas,>, \-s <slbas,>
 .RS 4
 Comma separated list of the starting blocks in each range
 .RE
 .PP
-\-\-snsids=<snsids,>, \-N <snsids,>
-.RS 4
-Comma separated list of the source namespace identifiers in each range
-.RE
-.PP
-\-\-sopts=<sopts,>, \-O <sopts,>
-.RS 4
-Comma separated list of the source options in each range
-.RE
-.PP
-\-l, \-\-limited\-retry
+\-\-limited\-retry, \-l
 .RS 4
 Sets the limited retry flag\&.
 .RE
 .PP
-\-f, \-\-force\-unit\-access
+\-\-force\-unit\-access, \-f
 .RS 4
 Set the force\-unit access flag\&.
 .RE
 .PP
-\-p <prinfow>, \-\-prinfow=<prinfow>
+\-\-prinfow=<prinfow>, \-p <prinfow>
 .RS 4
 Protection Information field write definition\&.
 .RE
 .PP
-\-P <prinfor>, \-\-prinfor=<prinfor>
+\-\-prinfor=<prinfor>, \-P <prinfor>
 .RS 4
 Protection Information field read definition\&.
 .RE
 .PP
-\-r <reftag>, \-\-ref\-tag=<reftag>
+\-\-ref\-tag=<reftag>, \-r <reftag>
 .RS 4
 initial lba reference tag\&.
 .RE
 .PP
-\-R <reftag,>, \-\-expected\-ref\-tags=<reftag,>
+\-\-expected\-ref\-tags=<reftag,>, \-R <reftag,>
 .RS 4
 expected lba reference tags (comma\-separated list)\&.
 .RE
 .PP
-\-a <apptag>, \-\-app\-tag=<apptag>
+\-\-app\-tag=<apptag>, \-a <apptag>
 .RS 4
 lba app tag
 .RE
 .PP
-\-A <apptag,>, \-\-expected\-app\-tags=<apptag,>
+\-\-expected\-app\-tags=<apptag,>, \-A <apptag,>
 .RS 4
 expected lba app tags (comma\-separated list)
 .RE
 .PP
-\-m <appmask>, \-\-app\-mask=<appmask>
+\-\-app\-mask=<appmask>, \-m <appmask>
 .RS 4
 lba tag mask
 .RE
 .PP
-\-M <appmask,>, \-\-expected\-app\-masks=<appmask,>
+\-\-expected\-app\-masks=<appmask,>, \-M <appmask,>
 .RS 4
 expected lba tag masks (comma\-separated list)
 .RE
 .PP
-\-T <type>, \-\-dir\-type=<type>
+\-\-dir\-type=<type>, \-T <type>
 .RS 4
 Optional directive type\&. The nvme\-cli only enforces the value be in the defined range for the directive type, though the NVMe specification (1\&.3a) defines only one directive, 01h, for write stream identifiers\&.
 .RE
 .PP
-\-S <spec>, \-\-dir\-spec=<spec>
+\-\-dir\-spec=<spec>, \-S <spec>
 .RS 4
 Optional field for directive specifics\&. When used with write streams, this value is defined to be the write stream identifier\&. The nvme\-cli will not validate the stream requested is within the controller\(cqs capabilities\&.
 .RE
 .PP
-\-F <entry\-format>, \-\-format=<entry\-format>
+\-\-format=<entry\-format>, \-F <entry\-format>
 .RS 4
 source range entry format
-.RE
-.PP
-\-o <fmt>, \-\-output\-format=<fmt>
-.RS 4
-Set the reporting format to
-\fInormal\fR,
-\fIjson\fR
-or
-\fIbinary\fR\&. Only one output format can be used at a time\&.
-.RE
-.PP
-\-v, \-\-verbose
-.RS 4
-Increase the information detail in the output\&.
 .RE
 .SH "EXAMPLES"
 .sp

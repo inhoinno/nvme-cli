@@ -8,8 +8,7 @@ nvme-lba-status-log - Send LBA Status Log Page request returns result and log
 SYNOPSIS
 --------
 [verse]
-'nvme lba-status-log' <device> [--rae | -r]
-			[--output-format=<fmt> | -o <fmt>] [--verbose | -v]
+'nvme lba-status-log' <device> [--rae | -r] [--output-format=<fmt> | -o <fmt>]
 
 DESCRIPTION
 -----------
@@ -30,14 +29,10 @@ OPTIONS
 --rae::
 	Retain an Asynchronous Event.
 
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json' or 'binary'. Only one
-	output format can be used at a time.
-
--v::
---verbose::
-	Increase the information detail in the output.
+-o <format>::
+--output-format=<format>::
+    Set the reporting format to 'normal', 'json', or 'binary'.
+    Only one output format can be used at a time.
 
 EXAMPLES
 --------

@@ -750,8 +750,8 @@ nvme-boot-part-log(1) Manual Page
 <div class="sectionbody">
 <div class="verseblock">
 <pre class="content"><em>nvme boot-part-log</em> &lt;device&gt; [--lsp=&lt;field&gt; | -s &lt;field&gt;]
-                        [--output-file=&lt;file&gt; | -f &lt;file&gt;]
-                        [--output-format=&lt;fmt&gt; | -o &lt;fmt&gt;] [--verbose | -v]</pre>
+                    [--output-file=&lt;file&gt; | -o &lt;file&gt;]
+                    [--output-format=&lt;fmt&gt; | -o &lt;fmt&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -783,7 +783,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 </p>
 </dd>
 <dt class="hdlist1">
--f &lt;file&gt;
+-o &lt;file&gt;
 </dt>
 <dt class="hdlist1">
 --output-file=&lt;file&gt;
@@ -794,26 +794,15 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 </p>
 </dd>
 <dt class="hdlist1">
--o &lt;fmt&gt;
+-o &lt;format&gt;
 </dt>
 <dt class="hdlist1">
---output-format=&lt;fmt&gt;
+--output-format=&lt;format&gt;
 </dt>
 <dd>
 <p>
-        Set the reporting format to <em>normal</em>, <em>json</em> or <em>binary</em>. Only one
-        output format can be used at a time.
-</p>
-</dd>
-<dt class="hdlist1">
--v
-</dt>
-<dt class="hdlist1">
---verbose
-</dt>
-<dd>
-<p>
-        Increase the information detail in the output.
+    Set the reporting format to <em>normal</em>, <em>json</em>, or
+    <em>binary</em>. Only one output format can be used at a time.
 </p>
 </dd>
 </dl></div>
@@ -846,7 +835,7 @@ Retrieve Boot Partition data to boot_part_log.bin
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2023-12-21 15:49:29 CET
+ 2023-06-30 15:20:22 CEST
 </div>
 </div>
 </body>

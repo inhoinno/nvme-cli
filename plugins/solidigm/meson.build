@@ -8,9 +8,6 @@ sources += [
   'plugins/solidigm/solidigm-telemetry.c',
   'plugins/solidigm/solidigm-internal-logs.c',
   'plugins/solidigm/solidigm-market-log.c',
-  'plugins/solidigm/solidigm-temp-stats.c',
-  'plugins/solidigm/solidigm-get-drive-info.c',
-  'plugins/solidigm/solidigm-ocp-version.c',
 ]
 subdir('solidigm-telemetry')
 

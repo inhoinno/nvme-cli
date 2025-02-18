@@ -9,16 +9,16 @@ SYNOPSIS
 --------
 [verse]
 'nvme-verify' <device> [--namespace-id=<nsid> | -n <nsid>]
-			[--start-block=<slba> | -s <slba>]
-			[--block-count=<nlb> | -c <nlb>] [--limited-retry | -l]
-			[--force-unit-access | -f]
-			[--prinfo=<prinfo> | -p <prinfo>]
-			[--ref-tag=<reftag> | -r <reftag>]
-			[--app-tag-mask=<appmask> | -m <appmask>]
-			[--app-tag=<apptag> | -a <apptag>]
-			[--storage-tag<storage-tag> | -S <storage-tag>]
-			[--storage-tag-check | -C]
-			[--output-format=<fmt> | -o <fmt>] [--verbose | -v]
+            [--start-block=<slba> | -s <slba>]
+            [--block-count=<nlb> | -c <nlb>]
+            [--limited-retry | -l]
+            [--force-unit-access | -f]
+            [--prinfo=<prinfo> | -p <prinfo>]
+            [--ref-tag=<reftag> | -r <reftag>]
+            [--app-tag-mask=<appmask> | -m <appmask>]
+            [--app-tag=<apptag> | -a <apptag>]
+            [--storage-tag<storage-tag> | -S <storage-tag>]
+            [--storage-tag-check | -C]
 
 DESCRIPTION
 -----------
@@ -27,28 +27,28 @@ reading data and metadata.
 
 OPTIONS
 -------
--n <nsid>::
 --namespace-id=<nsid>::
+-n <nsid>::
 	Namespace ID use in the command.
 
--s <slba>::
 --start-block=<slba>::
+-s <slba>::
 	Start block address.
 
--c <nlb>::
 --block-count=<nlb>::
+-c <nlb>::
 	Number of logical blocks to Verify.
 
--l::
 --limited-retry::
+-l::
 	Sets the limited retry flag.
 
--f::
 --force-unit-access::
+-f::
 	Set the force-unit access flag.
 
--p <prinfo>::
 --prinfo=<prinfo>::
+-p <prinfo>::
 	Protection Information field definition.
 +
 []
@@ -63,16 +63,16 @@ metadata is passes.
 |0|Set to 1 enables checking the reference tag
 |=================
 
--r <reftag>::
 --ref-tag=<reftag>::
+-r <reftag>::
 	Optional reftag when used with protection information.
 
--m <appmask>::
 --app-tag-mask=<appmask>::
+-m <appmask>::
 	Optional application tag mask when used with protection information.
 
--a <apptag>::
 --app-tag=<apptag>::
+-a <apptag>::
 	Optional application tag when used with protection information.
 
 -S <storage-tag>::
@@ -82,15 +82,6 @@ metadata is passes.
 -C::
 --storage-tag-check::
 	This flag enables Storage Tag field checking as part of Verify operation.
-
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json' or 'binary'. Only one
-	output format can be used at a time.
-
--v::
---verbose::
-	Increase the information detail in the output.
 
 EXAMPLES
 --------

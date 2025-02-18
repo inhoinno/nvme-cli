@@ -2,12 +2,12 @@
 .\"     Title: nvme-id-ns
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 12/21/2023
+.\"      Date: 06/30/2023
 .\"    Manual: NVMe Manual
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-ID\-NS" "1" "12/21/2023" "NVMe" "NVMe Manual"
+.TH "NVME\-ID\-NS" "1" "06/30/2023" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -34,8 +34,7 @@ nvme-list-ns \- Send NVMe Identify List Namespaces, return result and structure
 .nf
 \fInvme list\-ns\fR <device> [\-\-namespace\-id=<nsid> | \-n <nsid>]
                         [\-\-csi=<command_set_identifier> | \-y <command_set_identifier>]
-                        [\-\-all | \-a]
-                        [\-\-output\-format=<fmt> | \-o <fmt>] [\-\-verbose | \-v]
+                        [\-\-all | \-a] [\-\-output\-format=<fmt> | \-o <fmt>]
 .fi
 .SH "DESCRIPTION"
 .sp
@@ -61,18 +60,11 @@ If this value is given, retrieve the identify list structure associated with the
 Retrieve the identify list structure for all namespaces in the subsystem, whether attached or inactive\&.
 .RE
 .PP
-\-o <fmt>, \-\-output\-format=<fmt>
+\-o <format>, \-\-output\-format=<format>
 .RS 4
 Set the reporting format to
-\fInormal\fR,
-\fIjson\fR
-or
-\fIbinary\fR\&. Only one output format can be used at a time\&.
-.RE
-.PP
-\-v, \-\-verbose
-.RS 4
-Increase the information detail in the output\&.
+\fInormal\fR, or
+\fIjson\fR\&. Only one output format can be used at a time\&.
 .RE
 .SH "EXAMPLES"
 .sp

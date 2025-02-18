@@ -36,7 +36,7 @@ _nvme () {
 	'get-log:retrieve any log in raw format'
 	'predictable-lat-log:retrieve predictable latency per nvmset log'
 	'pred-lat-event-agg-log:retrieve predictable latency event aggregate log'
-	'persistent-event-log:retrieve persistent event log'
+	'persistent-event-log:retrieve presistent event log'
 	'telemetry-log:retrieve telemetry log'
 	'fw-log:retrieve fw log'
 	'changed-ns-list-log:retrieve changed namespaces log'
@@ -102,8 +102,6 @@ _nvme () {
 	'virt-mgmt:submit a Virtualization Management command'
 	'rpmb:submit an NVMe RPMB command'
 	'show-topology:show subsystem topology'
-	'nvme-mi-recv:send a NVMe-MI receive command'
-	'nvme-mi-send:send a NVMe-MI send command'
 	'version:show the program version'
 	'ocp:OCP cloud SSD extensions'
 	'help:print brief descriptions of all nvme commands'
@@ -219,15 +217,15 @@ _nvme () {
 				_arguments '*:: :->subcmds'
 				_describe -t commands "nvme ocp clear-pcie-correctable-error-counters options" _clear_pcie_correctable_error_counters
 				;;
-			(fw-activate-history)
-				local _fw_activate_history
-				_fw_activate_history=(
+			(vs-fw-activate-history)
+				local _vs_fw_activate_history
+				_vs_fw_activate_history=(
 				/dev/nvme':supply a device to use (required)'
 				--output-format=':Output format: normal|json'
 				-o':alias for --output-format'
 				)
 				_arguments '*:: :->subcmds'
-				_describe -t commands "nvme ocp fw-activate-history options" _fw_activate_history
+				_describe -t commands "nvme ocp vs-fw-activate-history options" _vs_fw_activate_history
 				;;
 			(device-capability-log)
 				local _device_capability_log
@@ -238,30 +236,6 @@ _nvme () {
 				)
 				_arguments '*:: :->subcmds'
 				_describe -t commands "nvme ocp device-capability-log options" _device_capability_log
-				;;
-			(set-dssd-power-state-feature)
-				local _set_dssd_power_state_feature
-				_set_dssd_power_state_feature=(
-				/dev/nvme':supply a device to use (required)'
-				--power-state=':DSSD Power State to set in watts'
-				-p':alias for --power-state'
-				--save':Specifies that the controller shall save the attribute'
-				-s':alias for --save'
-				--no-uuid':Skip UUID index search'
-				-n':alias for --no-uuid'
-				)
-				_arguments '*:: :->subcmds'
-				_describe -t commands "nvme ocp set-dssd-power-state-feature options" _set_dssd_power_state_feature
-				;;
-			(telemetry-string-log)
-				local _telemetry_string_log
-				_telemetry_string_log=(
-				/dev/nvme':supply a device to use (required)'
-				--output-file=':Output file name with path'
-				-o':alias for --output-file'
-				)
-				_arguments '*:: :->subcmds'
-				_describe -t commands "nvme ocp internal-log options" _internal_log
 				;;
 			(*)
 				_files
@@ -316,7 +290,7 @@ _nvme () {
 			--human-readable':show infos in readable format'
 			-H':alias of --human-readable'
 			--vendor-specific':also dump binary vendor infos'
-			-V':alias of --vendor-specific'
+			-v':alias of --vendor-specific'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme id-ctrl options" _idctrl
@@ -332,7 +306,7 @@ _nvme () {
 			--human-readable':show infos in readable format'
 			-H':alias of --human-readable'
 			--vendor-specific':also dump binary vendor infos'
-			-V':alias of --vendor-specific'
+			-v':alias of --vendor-specific'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme id-ns options" _idns
@@ -551,8 +525,6 @@ _nvme () {
 			-a':alias of --anagrp-id'
 			--nvmset-id=':NVM Set Identifier'
 			-i':alias of --nvmset-id'
-			--endg-id=':Endurance Group Identifier'
-			-e':alias of --endg-id'
 			--block-size=':target block size'
 			-b':alias of --block-size'
 			--timeout=':value for timeout'
@@ -565,16 +537,6 @@ _nvme () {
 			-S':alias of --nsze-si'
 			--ncap-si=':capacity of ns (NCAP) in standard SI units'
 			-C':alias of --ncap-si'
-			--azr=':Allocate ZRWA Resources (AZR) for Zoned Namespace Command Set'
-			-z':alias of --azr'
-			--rar=':Requested Active Resources (RAR) for Zoned Namespace Command Set'
-			-r':alias of --rar'
-			--ror=':Requested Open Resources (ROR) for Zoned Namespace Command Set'
-			-O':alias of --ror'
-			--rnumzrwa=':Requested Number of ZRWA Resources (RNUMZRWA) for Zoned Namespace Command Set'
-			-u':alias of --rnumzrwa'
-			--phndls=':Comma separated list of Placement Handle Associated RUH'
-			-p':alias of --phndls'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme create-ns options" _createns
@@ -650,7 +612,7 @@ _nvme () {
 			--aen=':result of the aen, use to override log id'
 			-a':alias of --aen'
 			--lpo=':log page offset specifies the location within a log page from where to start returning data'
-			-L':alias of --lpo'
+			-o':alias of --lpo'
 			--lsi=':log specific identifier specifies an identifier that is required for a particular log page'
 			-S':alias of --lsi'
 			--rae':Retain an Asynchronous Event'
@@ -686,7 +648,7 @@ _nvme () {
 			_telemetry_log=(
 			/dev/nvme':supply a device to use (required)'
 			--output-file=':telemetry data output write'
-			-O':alias for --output-file'
+			-o':alias for --output-file'
 			--host-generate=':Have the host tell the controller to generate the report'
 			-g':alias to --host-generate'
 			--controller-init':Gather report generated by the controller'
@@ -925,7 +887,7 @@ _nvme () {
 			_lockdown=(
 			/dev/nvme':supply a device to use (required)'
 			--ofi=':Opcode or Feature Identifier(OFI) (required)'
-			-O':alias of --ofi'
+			-o':alias of --ofi'
 			--ifc=':Interface (INF) field Information (required)'
 			-f':alias of --ifc'
 			--prhbt=':Prohibit(PRHBT) bit field (required)'
@@ -951,7 +913,7 @@ _nvme () {
 			--data=':data file for LBA Type Range or host identifier buffer (defaults to stdin)'
 			-d':alias to --data'
 			--value=':new value of feature (required)'
-			-V'alias to --value'
+			-v'alias to --value'
 			--uuid-index=':uuid index'
 			-U':alias for --uuid-index'
 			)
@@ -963,9 +925,9 @@ _nvme () {
 			_set_property=(
 			/dev/nvme':supply a device to use (required)'
 			--offset=':the offset of the property'
-			-O':alias to --offset'
+			-o':alias to --offset'
 			--value=':the value of the property to be set'
-			-V':alias to --value'
+			-v':alias to --value'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme set-property options" _set_property
@@ -975,7 +937,7 @@ _nvme () {
 			_get_property=(
 			/dev/nvme':supply a device to use (required)'
 			--offset=':the offset of the property'
-			-O':alias to --offset'
+			-o':alias to --offset'
 			--human-readable':show infos in readable format'
 			-H':alias of --human-readable'
 			)
@@ -1025,7 +987,7 @@ _nvme () {
 			--xfer=':limit on chunk-size of transfer (if device has download size limit)'
 			-x':alias of --xfer'
 			--offset=':starting offset, in dwords (defaults to 0, only useful if download is split across multiple files)'
-			-O':alias of --offset'
+			-o':alias of --offset'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme fw-download options" _fwd
@@ -1035,7 +997,7 @@ _nvme () {
 			_fwd=(
 			/dev/nvme':supply a device to use (required)'
 			--operation=':Operation to be performed by the controller'
-			-O':alias of --operation'
+			-o':alias of --operation'
 			--element-id=':specific to the value of the Operation field'
 			-i':alias of --element-id'
 			--cap-lower=':Least significant 32 bits of the capacity in bytes'
@@ -1229,7 +1191,7 @@ _nvme () {
 			_admin=(
 			/dev/nvme':supply a device to use (required)'
 			--opcode=':hexadecimal opcode to send (required)'
-			-O':alias of --opcode'
+			-o':alias of --opcode'
 			--flags=':command flags'
 			-f':alias of --flags'
 			--rsvd=':value for reserved field'
@@ -1279,7 +1241,7 @@ _nvme () {
 			_io=(
 			/dev/nvme':supply a device to use (required)'
 			--opcode=':hexadecimal opcode to send (required)'
-			-O':alias of --opcode'
+			-o':alias of --opcode'
 			--flags=':command flags'
 			-f':alias of --flags'
 			--rsvd=':value for reserved field'
@@ -1551,7 +1513,7 @@ _nvme () {
 			--force-unit-access':if included, the data shall be read from non-volatile media'
 			-f':alias of --force-unit access'
 			--show-command':show command instead of sending to device'
-			-V':alias of --show-command'
+			-v':alias of --show-command'
 			--dry-run':show command instead of sending to device'
 			-w':alias of --show-command'
 			)
@@ -1587,7 +1549,7 @@ _nvme () {
 			--force-unit-access':data read shall be returned from nonvolatile media before command completion is indicated'
 			-f':alias of --force-unit-access'
 			--show-command':show command instead of sending to device'
-			-V':alias of --show-command'
+			-v':alias of --show-command'
 			--dry-run':show command instead of sending to device'
 			-w':alias of --show-command'
 			)
@@ -1623,7 +1585,7 @@ _nvme () {
 			--force-unit-access':data shall be written to nonvolatile media before command completion is indicated'
 			-f':alias of --force-unit-access'
 			--show-command':show command instead of sending to device'
-			-V':alias of --show-command'
+			-v':alias of --show-command'
 			--dry-run':show command instead of sending to device'
 			-w':alias of --show-command'
 			)
@@ -2010,48 +1972,6 @@ _nvme () {
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme show-topology options" _showtopology
 			;;
-		(nvme-mi-recv)
-			local _nvme_mi_recv
-			_nvme_mi_recv=(
-			--opcode=':NVMe-MI opcode to send'
-			-O':alias of --opcode'
-			--namespace-id=':value for nsid'
-			-n':alias of --namespace-id'
-			--data-len=':length for data buffer'
-			-l':alias of --data-len'
-			--nmimt':value for NVMe-MI message type'
-			-m':alias of --nmimt'
-			--nmd0':value for NVMe management request dword 0'
-			-0':alias of --nmd0'
-			--nmd1':value for NVMe management request dword 1'
-			-1':alias of --nmd1'
-			--input-file=':defaults to stdin; input for write (send direction)'
-			-i':alias for --input-file'
-			)
-			_arguments '*:: :->subcmds'
-			_describe -t commands "nvme nvme-mi-recv options" _nvme_mi_recv
-			;;
-		(nvme-mi-send)
-			local _nvme_mi_send
-			_nvme_mi_send=(
-			--opcode=':NVMe-MI opcode to send'
-			-O':alias of --opcode'
-			--namespace-id=':value for nsid'
-			-n':alias of --namespace-id'
-			--data-len=':length for data buffer'
-			-l':alias of --data-len'
-			--nmimt':value for NVMe-MI message type'
-			-m':alias of --nmimt'
-			--nmd0':value for NVMe management request dword 0'
-			-0':alias of --nmd0'
-			--nmd1':value for NVMe management request dword 1'
-			-1':alias of --nmd1'
-			--input-file=':defaults to stdin; input for write (send direction)'
-			-i':alias for --input-file'
-			)
-			_arguments '*:: :->subcmds'
-			_describe -t commands "nvme nvme-mi-send options" _nvme_mi_send
-			;;
 		(version)
 			local _version
 			_version=(
@@ -2071,8 +1991,6 @@ _nvme () {
 			clear-pcie-correctable-error-counters':Clear PCIe correctable error counters'
 			vs-fw-activate-history':Get firmware activation history log'
 			device-capability-log':Get Device capability log'
-			set-dssd-power-state-feature':Set DSSD Power State'
-			telemetry-string-log':Retrieve Telemetry string Log Page'
 			)
 			_arguments '*:: :->subcmds'
 			_describe -t commands "nvme ocp options" _ocp

@@ -53,6 +53,7 @@ OPTIONS
 	When used with 'nlog', this specifies which nlog to read. -1
 	for all, if supported by the device.
 
+
 EXAMPLES
 --------
 * Gets the nlog from the device and saves to default file:

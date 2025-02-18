@@ -9,7 +9,7 @@ SYNOPSIS
 --------
 [verse]
 'nvme id-iocs' <device> [--controller-id=<cntid> | -c <cntid>]
-			[--output-format=<fmt> | -o <fmt>] [--verbose | -v]
+                        [-o <fmt> | --output-format=<fmt>]
 
 DESCRIPTION
 -----------
@@ -30,14 +30,10 @@ OPTIONS
 	This option will parse and format many of the bit fields
 	into human-readable formats.
 
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json' or 'binary'. Only one
-	output format can be used at a time.
-
--v::
---verbose::
-	Increase the information detail in the output.
+-o <format>::
+--output-format=<format>::
+              Set the reporting format to 'normal', 'json', or
+              'binary'. Only one output format can be used at a time.
 
 EXAMPLES
 --------

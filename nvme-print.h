@@ -8,8 +8,8 @@
 #include <ccan/list/list.h>
 
 typedef struct nvme_effects_log_node {
-	struct nvme_cmd_effects_log effects; /* needs to be first member because of alignment requirement. */
 	enum nvme_csi csi;
+	struct nvme_cmd_effects_log effects;
 	struct list_node node;
 } nvme_effects_log_node_t;
 
@@ -23,7 +23,6 @@ struct print_ops {
 	/* libnvme types.h print functions */
 	void (*ana_log)(struct nvme_ana_log *ana_log, const char *devname, size_t len);
 	void (*boot_part_log)(void *bp_log, const char *devname, __u32 size);
-	void (*phy_rx_eom_log)(struct nvme_phy_rx_eom_log *log, __u16 controller);
 	void (*ctrl_list)(struct nvme_ctrl_list *ctrl_list);
 	void (*ctrl_registers)(void *bar, bool fabrics);
 	void (*directive)(__u8 type, __u8 oper, __u16 spec, __u32 nsid, __u32 result, void *buf, __u32 len);
@@ -65,26 +64,21 @@ struct print_ops {
 	void (*resv_report)(struct nvme_resv_status *status, int bytes, bool eds);
 	void (*sanitize_log_page)(struct nvme_sanitize_log_page *sanitize_log, const char *devname);
 	void (*secondary_ctrl_list)(const struct nvme_secondary_ctrl_list *sc_list, __u32 count);
-	void (*select_result)(enum nvme_features_id fid, __u32 result);
+	void (*select_result)(__u32 result);
 	void (*self_test_log)(struct nvme_self_test_log *self_test, __u8 dst_entries, __u32 size, const char *devname);
 	void (*single_property)(int offset, uint64_t value64);
 	void (*smart_log)(struct nvme_smart_log *smart, unsigned int nsid, const char *devname);
 	void (*supported_cap_config_list_log)(struct nvme_supported_cap_config_list_log *cap_log);
 	void (*supported_log_pages)(struct nvme_supported_log_pages *support_log, const char *devname);
-	void (*zns_start_zone_list)(__u64 nr_zones, struct json_object **zone_list);
 	void (*zns_changed_zone_log)(struct nvme_zns_changed_zone_log *log);
 	void (*zns_finish_zone_list)(__u64 nr_zones, struct json_object *zone_list);
 	void (*zns_id_ctrl)(struct nvme_zns_id_ctrl *ctrl);
 	void (*zns_id_ns)(struct nvme_zns_id_ns *ns, struct nvme_id_ns *id_ns);
 	void (*zns_report_zones)(void *report, __u32 descs, __u8 ext_size, __u32 report_size, struct json_object *zone_list);
-	void (*show_feature)(enum nvme_features_id fid, int sel, unsigned int result);
-	void (*show_feature_fields)(enum nvme_features_id fid, unsigned int result, unsigned char *buf);
+	void (*show_feature_fields)(enum nvme_features_id id, unsigned int result, unsigned char *buf);
 	void (*id_ctrl_rpmbs)(__le32 ctrl_rpmbs);
 	void (*lba_range)(struct nvme_lba_range_type *lbrt, int nr_ranges);
 	void (*lba_status_info)(__u32 result);
-	void (*d)(unsigned char *buf, int len, int width, int group);
-	void (*show_init)(void);
-	void (*show_finish)(void);
 
 	/* libnvme tree print functions */
 	void (*list_item)(nvme_ns_t n);
@@ -98,30 +92,8 @@ struct print_ops {
 	void (*show_message)(bool error, const char *msg, va_list ap);
 	void (*show_perror)(const char *msg);
 	void (*show_status)(int status);
-	void (*show_error_status)(int status, const char *msg, va_list ap);
 
 	enum nvme_print_flags flags;
-};
-
-struct nvme_bar_cap {
-	__u16	mqes;
-	__u8	cqr:1;
-	__u8	ams:2;
-	__u8	rsvd19:5;
-	__u8	to;
-	__u16	dstrd:4;
-	__u16	nssrs:1;
-	__u16	css:8;
-	__u16	bps:1;
-	__u8	cps:2;
-	__u8	mpsmin:4;
-	__u8	mpsmax:4;
-	__u8	pmrs:1;
-	__u8	cmbs:1;
-	__u8	nsss:1;
-	__u8	crwms:1;
-	__u8	crims:1;
-	__u8	rsvd61:3;
 };
 
 #ifdef CONFIG_JSONC
@@ -144,7 +116,6 @@ void nvme_show_relatives(const char *name);
 void nvme_show_id_iocs(struct nvme_id_iocs *iocs, enum nvme_print_flags flags);
 void nvme_show_id_ctrl(struct nvme_id_ctrl *ctrl, enum nvme_print_flags flags,
 	void (*vendor_show)(__u8 *vs, struct json_object *root));
-void nvme_show_id_ctrl_rpmbs(__le32 ctrl_rpmbs, enum nvme_print_flags flags);
 void nvme_show_id_ns(struct nvme_id_ns *ns, unsigned int nsid,
 		unsigned int lba_index, bool cap_only, enum nvme_print_flags flags);
 void nvme_show_cmd_set_independent_id_ns(
@@ -194,8 +165,6 @@ void nvme_show_resv_notif_log(struct nvme_resv_notification_log *resv,
 	const char *devname, enum nvme_print_flags flags);
 void nvme_show_boot_part_log(void *bp_log, const char *devname,
 	__u32 size, enum nvme_print_flags flags);
-void nvme_show_phy_rx_eom_log(struct nvme_phy_rx_eom_log *log,
-	__u16 controller, enum nvme_print_flags flags);
 void nvme_show_fid_support_effects_log(struct nvme_fid_supported_effects_log *fid_log,
 	const char *devname, enum nvme_print_flags flags);
 void nvme_show_mi_cmd_support_effects_log(struct nvme_mi_cmd_supported_effects_log *mi_cmd_log,
@@ -234,11 +203,10 @@ void nvme_show_topology(nvme_root_t t,
 			enum nvme_cli_topo_ranking ranking,
 			enum nvme_print_flags flags);
 
-void nvme_feature_show(enum nvme_features_id fid, int sel, unsigned int result);
 void nvme_feature_show_fields(enum nvme_features_id fid, unsigned int result, unsigned char *buf);
 void nvme_directive_show(__u8 type, __u8 oper, __u16 spec, __u32 nsid, __u32 result,
 	void *buf, __u32 len, enum nvme_print_flags flags);
-void nvme_show_select_result(enum nvme_features_id fid, __u32 result);
+void nvme_show_select_result(__u32 result);
 
 void nvme_show_zns_id_ctrl(struct nvme_zns_id_ctrl *ctrl,
 			   enum nvme_print_flags flags);
@@ -249,12 +217,8 @@ void nvme_show_nvm_id_ns(struct nvme_nvm_id_ns *nvm_ns, unsigned int nsid,
 						bool cap_only, enum nvme_print_flags flags);
 void nvme_show_zns_id_ns(struct nvme_zns_id_ns *ns,
 			 struct nvme_id_ns *id_ns, enum nvme_print_flags flags);
-void nvme_zns_start_zone_list(__u64 nr_zones, struct json_object **zone_list,
-			      enum nvme_print_flags flags);
 void nvme_show_zns_changed(struct nvme_zns_changed_zone_log *log,
 			   enum nvme_print_flags flags);
-void nvme_zns_finish_zone_list(__u64 nr_zones, struct json_object *zone_list,
-			       enum nvme_print_flags flags);
 void nvme_show_zns_report_zones(void *report, __u32 descs,
 				__u8 ext_size, __u32 report_size,
 				struct json_object *zone_list,
@@ -307,7 +271,5 @@ void nvme_dev_full_path(nvme_ns_t n, char *path, size_t len);
 void nvme_generic_full_path(nvme_ns_t n, char *path, size_t len);
 void nvme_show_message(bool error, const char *msg, ...);
 void nvme_show_perror(const char *msg);
-void nvme_show_error_status(int status, const char *msg, ...);
-void nvme_show_init(void);
-void nvme_show_finish(void);
-#endif /* NVME_PRINT_H */
+
+#endif

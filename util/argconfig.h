@@ -41,8 +41,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-#include <linux/types.h>
-
 enum argconfig_types {
 	CFG_FLAG,
 	CFG_STRING,
@@ -51,6 +49,7 @@ enum argconfig_types {
 	CFG_LONG,
 	CFG_LONG_SUFFIX,
 	CFG_DOUBLE,
+	CFG_BOOL,
 	CFG_BYTE,
 	CFG_SHORT,
 	CFG_POSITIVE,
@@ -175,15 +174,10 @@ int argconfig_parse_comma_sep_array_short(char *string, unsigned short *ret,
 					  unsigned int max_length);
 int argconfig_parse_comma_sep_array_long(char *string, unsigned long long *ret,
 					 unsigned int max_length);
-int argconfig_parse_comma_sep_array_u16(char *string, __u16 *val,
-					unsigned int max_length);
-int argconfig_parse_comma_sep_array_u32(char *string, __u32 *val,
-					unsigned int max_length);
-int argconfig_parse_comma_sep_array_u64(char *string, __u64 *val,
-					unsigned int max_length);
 int argconfig_parse_byte(const char *opt, const char *str, unsigned char *val);
 
 void print_word_wrapped(const char *s, int indent, int start, FILE *stream);
 bool argconfig_parse_seen(struct argconfig_commandline_options *options,
 			  const char *option);
+bool argconfig_output_format_json(bool set);
 #endif

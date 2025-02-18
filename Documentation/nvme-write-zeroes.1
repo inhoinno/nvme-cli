@@ -2,12 +2,12 @@
 .\"     Title: nvme-write-zeroes
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 12/21/2023
+.\"      Date: 06/30/2023
 .\"    Manual: NVMe Manual
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-WRITE\-ZEROES" "1" "12/21/2023" "NVMe" "NVMe Manual"
+.TH "NVME\-WRITE\-ZEROES" "1" "06/30/2023" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -37,31 +37,32 @@ nvme-write-zeroes \- Send an NVMe write zeroes command, return results
                         [\-\-ref\-tag=<reftag> | \-r <reftag>]
                         [\-\-prinfo=<prinfo> | \-p <prinfo>]
                         [\-\-app\-tag\-mask=<appmask> | \-m <appmask>]
-                        [\-\-app\-tag=<apptag> | \-a <apptag>] [\-\-deac | \-d]
-                        [\-\-limited\-retry | \-l] [\-\-force\-unit\-access | \-f]
+                        [\-\-app\-tag=<apptag> | \-a <apptag>]
+                        [\-\-deac | \-d]
+                        [\-\-limited\-retry | \-l]
+                        [\-\-force\-unit\-access | \-f]
                         [\-\-namespace\-id=<nsid> | \-n <nsid>]
                         [\-\-storage\-tag<storage\-tag> | \-S <storage\-tag>]
                         [\-\-storage\-tag\-check<storage\-tag\-check> | \-C <storage\-tag\-check>]
                         [\-\-dir\-type=<dtype> | \-T <dtype>]
                         [\-\-dir\-spec=<dspec> | \-D <dspec>]
-                        [\-\-output\-format=<fmt> | \-o <fmt>] [\-\-verbose | \-v]
 .fi
 .SH "DESCRIPTION"
 .sp
 The Write Zeroes command is used to set a range of logical blocks to 0\&.
 .SH "OPTIONS"
 .PP
-\-s <slba>, \-\-start\-block=<slba>
+\-\-start\-block=<slba>, \-s <slba>
 .RS 4
 Start block\&.
 .RE
 .PP
-\-c <nlb>, \-\-block\-count=<nlb>
+\-\-block\-count=<nlb>, \-c <nlb>
 .RS 4
 Number of logical blocks to write zeroes\&.
 .RE
 .PP
-\-p <prinfo>, \-\-prinfo=<prinfo>
+\-\-prinfo=<prinfo>, \-p <prinfo>
 .RS 4
 Protection Information field definition\&.
 .TS
@@ -106,47 +107,47 @@ T}
 .sp 1
 .RE
 .PP
-\-r <reftag>, \-\-ref\-tag=<reftag>
+\-\-ref\-tag=<reftag>, \-r <reftag>
 .RS 4
 Optional reftag when used with protection information\&.
 .RE
 .PP
-\-m <appmask>, \-\-app\-tag\-mask=<appmask>
+\-\-app\-tag\-mask=<appmask>, \-m <appmask>
 .RS 4
 Optional application tag mask when used with protection information\&.
 .RE
 .PP
-\-a <apptag>, \-\-app\-tag=<apptag>
+\-\-app\-tag=<apptag>, \-a <apptag>
 .RS 4
 Optional application tag when used with protection information\&.
 .RE
 .PP
-\-l, \-\-limited\-retry
+\-\-limited\-retry, \-l
 .RS 4
 Sets the limited retry flag\&.
 .RE
 .PP
-\-d, \-\-deac
+\-\-deac, \-d
 .RS 4
 Sets the DEAC bit, requesting controller deallocate the logical blocks\&.
 .RE
 .PP
-\-f, \-\-force\-unit\-access
+\-\-force\-unit\-access, \-f
 .RS 4
 Set the force\-unit access flag\&.
 .RE
 .PP
-\-n <nsid>, \-\-namespace\-id=<nsid>
+\-\-namespace\-id=<nsid>, \-n <nsid>
 .RS 4
 Namespace ID use in the command\&.
 .RE
 .PP
-\-S <storage\-tag>, \-\-storage\-tag=<storage\-tag>
+\-\-storage\-tag=<storage\-tag>, \-S <storage\-tag>
 .RS 4
 Variable Sized Logical Block Storage Tag(LBST)\&.
 .RE
 .PP
-\-C <storage\-tag\-check>, \-\-storage\-tag\-check=<storage\-tag\-check>
+\-\-storage\-tag\-check=<storage\-tag\-check>, \-C <storage\-tag\-check>
 .RS 4
 This bit specifies the Storage Tag field shall be checked as part of end\-to\-end data protection processing\&.
 .RE
@@ -159,20 +160,6 @@ Directive type
 \-D <dspec>, \-\-dir\-spec=<dspec>
 .RS 4
 Directive specific
-.RE
-.PP
-\-o <fmt>, \-\-output\-format=<fmt>
-.RS 4
-Set the reporting format to
-\fInormal\fR,
-\fIjson\fR
-or
-\fIbinary\fR\&. Only one output format can be used at a time\&.
-.RE
-.PP
-\-v, \-\-verbose
-.RS 4
-Increase the information detail in the output\&.
 .RE
 .SH "EXAMPLES"
 .sp

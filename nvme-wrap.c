@@ -106,11 +106,11 @@ int nvme_cli_identify_primary_ctrl(struct nvme_dev *dev, __u32 nsid,
 	return do_admin_op(identify_primary_ctrl, dev, nsid, cap);
 }
 
-int nvme_cli_identify_secondary_ctrl_list(struct nvme_dev *dev,
+int nvme_cli_identify_secondary_ctrl_list(struct nvme_dev *dev, __u32 nsid,
 					  __u16 ctrl_id,
 					  struct nvme_secondary_ctrl_list *sc_list)
 {
-	return do_admin_op(identify_secondary_ctrl_list, dev, ctrl_id,
+	return do_admin_op(identify_secondary_ctrl_list, dev, nsid, ctrl_id,
 			   sc_list);
 }
 
@@ -302,12 +302,6 @@ int nvme_cli_get_log_boot_partition(struct nvme_dev *dev, bool rae, __u8 lsp,
 	return do_admin_op(get_log_boot_partition, dev, rae, lsp, len, part);
 }
 
-int nvme_cli_get_log_phy_rx_eom(struct nvme_dev *dev, __u8 lsp, __u16 controller,
-				__u32 len, struct nvme_phy_rx_eom_log *part)
-{
-	return do_admin_op(get_log_phy_rx_eom, dev, lsp, controller, len, part);
-}
-
 int nvme_cli_get_log_discovery(struct nvme_dev *dev, bool rae,
 			       __u32 offset, __u32 len, void *log)
 {
@@ -429,8 +423,3 @@ int nvme_cli_security_receive(struct nvme_dev *dev,
 	return -ENODEV;
 }
 
-void nvme_cli_set_debug(struct nvme_dev *dev, bool set)
-{
-	if (dev->type == NVME_DEV_DIRECT)
-		nvme_set_debug(set);
-}

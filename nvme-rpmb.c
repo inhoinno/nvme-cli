@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (C) 2020 Micron Technology Inc. All rights reserved.
+ * Copyright (C) 2020 Micron Techology Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -32,7 +32,6 @@
 #include "common.h"
 #include "nvme.h"
 #include "libnvme.h"
-#include "nvme-print.h"
 
 #define CREATE_CMD
 
@@ -49,6 +48,7 @@
 #define HMAC_SHA256_HASH_SIZE		32
 #define MD5_HASH_HASH_SIZE		16
 
+extern int nvme_show_id_ctrl_rpmbs(unsigned int);
 /*
  * Utility function to create hash value of given data (with given key) using
  * given hash algorithm; this function uses kernel crypto services
@@ -68,7 +68,7 @@ unsigned char *create_hash(const char *algo,
 		.salg_name = { 0 }
 	};
 
-	/* copy algorithm name */
+	/* copy algorith name */
 	if (strlen(algo) > sizeof(provider_sa.salg_name)) {
 		fprintf(stderr, "%s: algorithm name overflow", __func__);
 		return hash;
@@ -608,7 +608,7 @@ static int rpmb_program_auth_key(int fd, unsigned char target,
 		goto out;
 	}
 
-	/* reuse response buffer */
+	/* re-use response buffer */
 	memset(rsp, 0, rsp_size);
 	err = recv_rpmb_rsp(fd, req->target, rsp_size, rsp);
 	if (err != 0) {
@@ -903,7 +903,7 @@ int rpmb_cmd_option(int argc, char **argv, struct command *cmd, struct plugin *p
 	
 	/* parse and validate options; default print rpmb support info */
 	if (cfg.cmd == 0 || strcmp(cfg.cmd, "info") == 0) {
-		nvme_show_id_ctrl_rpmbs(regs.rpmbs, 0);
+		nvme_show_id_ctrl_rpmbs(regs.rpmbs);
 		goto out;
 	}
 	
@@ -1005,7 +1005,7 @@ int rpmb_cmd_option(int argc, char **argv, struct command *cmd, struct plugin *p
 						  cfg.blocks,
 						  (regs.access_size + 1));
 			if (err > 0 && msg_buf != NULL) {
-				printf("Writing %d bytes to file %s\n",
+				printf("Writting %d bytes to file %s\n",
 					err * 512, cfg.msgfile);
 				write_file(msg_buf, err * 512, NULL,
 					   cfg.msgfile, NULL);

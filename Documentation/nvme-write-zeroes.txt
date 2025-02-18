@@ -13,14 +13,15 @@ SYNOPSIS
 			[--ref-tag=<reftag> | -r <reftag>]
 			[--prinfo=<prinfo> | -p <prinfo>]
 			[--app-tag-mask=<appmask> | -m <appmask>]
-			[--app-tag=<apptag> | -a <apptag>] [--deac | -d]
-			[--limited-retry | -l] [--force-unit-access | -f]
+			[--app-tag=<apptag> | -a <apptag>]
+			[--deac | -d]
+			[--limited-retry | -l]
+			[--force-unit-access | -f]
 			[--namespace-id=<nsid> | -n <nsid>]
 			[--storage-tag<storage-tag> | -S <storage-tag>]
 			[--storage-tag-check<storage-tag-check> | -C <storage-tag-check>]
 			[--dir-type=<dtype> | -T <dtype>]
 			[--dir-spec=<dspec> | -D <dspec>]
-			[--output-format=<fmt> | -o <fmt>] [--verbose | -v]
 
 DESCRIPTION
 -----------
@@ -28,16 +29,16 @@ The Write Zeroes command is used to set a range of logical blocks to 0.
 
 OPTIONS
 -------
--s <slba>::
 --start-block=<slba>::
+-s <slba>::
 	Start block.
 
--c <nlb>::
 --block-count=<nlb>::
+-c <nlb>::
 	Number of logical blocks to write zeroes.
 
--p <prinfo>::
 --prinfo=<prinfo>::
+-p <prinfo>::
 	Protection Information field definition.
 +
 []
@@ -52,40 +53,40 @@ metadata is passes.
 |0|Set to 1 enables checking the reference tag
 |=================
 
--r <reftag>::
 --ref-tag=<reftag>::
+-r <reftag>::
 	Optional reftag when used with protection information.
 
--m <appmask>::
 --app-tag-mask=<appmask>::
+-m <appmask>::
 	Optional application tag mask when used with protection information.
 
--a <apptag>::
 --app-tag=<apptag>::
+-a <apptag>::
 	Optional application tag when used with protection information.
 
--l::
 --limited-retry::
+-l::
 	Sets the limited retry flag.
 
--d::
 --deac::
+-d::
 	Sets the DEAC bit, requesting controller deallocate the logical blocks.
 
--f::
 --force-unit-access::
+-f::
 	Set the force-unit access flag.
 
--n <nsid>::
 --namespace-id=<nsid>::
+-n <nsid>::
 	Namespace ID use in the command.
 
--S <storage-tag>::
 --storage-tag=<storage-tag>::
+-S <storage-tag>::
 	Variable Sized Logical Block Storage Tag(LBST).
 
--C <storage-tag-check>::
 --storage-tag-check=<storage-tag-check>::
+-C <storage-tag-check>::
 	This bit specifies the Storage Tag field shall be checked as part of end-to-end
 	data protection processing.
 
@@ -96,15 +97,6 @@ metadata is passes.
 -D <dspec>::
 --dir-spec=<dspec>::
 	Directive specific
-
--o <fmt>::
---output-format=<fmt>::
-	Set the reporting format to 'normal', 'json' or 'binary'. Only one
-	output format can be used at a time.
-
--v::
---verbose::
-	Increase the information detail in the output.
 
 EXAMPLES
 --------

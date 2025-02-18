@@ -753,8 +753,7 @@ nvme-uncor(1) Manual Page
                         [--block-count=&lt;nlb&gt; | -c &lt;nlb&gt;]
                         [--namespace-id=&lt;nsid&gt; | -n &lt;nsid&gt;]
                         [--dir-type=&lt;dtype&gt; | -T &lt;dtype&gt;]
-                        [--dir-spec=&lt;dspec&gt; | -S &lt;dspec&gt;]
-                        [--output-format=&lt;fmt&gt; | -o &lt;fmt&gt;] [--verbose | -v]</pre>
+                        [--dir-spec=&lt;dspec&gt; | -S &lt;dspec&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -771,10 +770,10 @@ blocks.</p></div>
 <div class="sectionbody">
 <div class="dlist"><dl>
 <dt class="hdlist1">
--s &lt;slba&gt;
+--start-block=&lt;slba&gt;
 </dt>
 <dt class="hdlist1">
---start-block=&lt;slba&gt;
+-s &lt;slba&gt;
 </dt>
 <dd>
 <p>
@@ -782,10 +781,10 @@ blocks.</p></div>
 </p>
 </dd>
 <dt class="hdlist1">
--c
+--block-count=&lt;nlb&gt;
 </dt>
 <dt class="hdlist1">
---block-count=&lt;nlb&gt;
+-c
 </dt>
 <dd>
 <p>
@@ -793,10 +792,10 @@ blocks.</p></div>
 </p>
 </dd>
 <dt class="hdlist1">
--n &lt;nsid&gt;
+--namespace-id=&lt;nsid&gt;
 </dt>
 <dt class="hdlist1">
---namespace-id=&lt;nsid&gt;
+-n &lt;nsid&gt;
 </dt>
 <dd>
 <p>
@@ -825,29 +824,6 @@ blocks.</p></div>
         Directive specific
 </p>
 </dd>
-<dt class="hdlist1">
--o &lt;fmt&gt;
-</dt>
-<dt class="hdlist1">
---output-format=&lt;fmt&gt;
-</dt>
-<dd>
-<p>
-        Set the reporting format to <em>normal</em>, <em>json</em> or <em>binary</em>. Only one
-        output format can be used at a time.
-</p>
-</dd>
-<dt class="hdlist1">
--v
-</dt>
-<dt class="hdlist1">
---verbose
-</dt>
-<dd>
-<p>
-        Increase the information detail in the output.
-</p>
-</dd>
 </dl></div>
 </div>
 </div>
@@ -868,7 +844,7 @@ blocks.</p></div>
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2023-12-21 15:49:29 CET
+ 2023-06-30 15:20:22 CEST
 </div>
 </div>
 </body>

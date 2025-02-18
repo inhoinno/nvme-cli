@@ -24,8 +24,8 @@ On success it returns 0, error code otherwise.
 
 OPTIONS
 -------
--o <fmt>::
---output-format=<fmt>::
+-o <format>::
+--output-format=<format>::
 	Set the reporting format to 'normal' or 'json' or 'binary'. 
 	Only one output format can be used at a time. The default is normal.
 
@@ -34,7 +34,7 @@ EXAMPLES
 * Has the program issue a error-recovery-log command to retrieve the 0xC1 log page.
 +
 ------------
-# nvme ocp error-recovery-log /dev/nvme0 -o normal
+# nvme ocp unsupported-reqs-log /dev/nvme0 -o normal
 ------------
 
 NVME

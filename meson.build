@@ -4,7 +4,7 @@ project(
     'nvme-cli', ['c'],
     meson_version: '>= 0.50.0',
     license: 'GPL-2.0-only',
-    version: '2.7.1',
+    version: '2.5',
     default_options: [
       'c_std=gnu99',
       'buildtype=debug',
@@ -48,7 +48,7 @@ conf.set('SYSCONFDIR', '"@0@"'.format(sysconfdir))
 conf.set('RUNDIR', '"@0@"'.format(rundir))
 
 # Check for libnvme availability
-libnvme_dep = dependency('libnvme', version: '>=1.7', required: true,
+libnvme_dep = dependency('libnvme', version: '>=1.5', required: true,
                          fallback : ['libnvme', 'libnvme_dep'])
 libnvme_mi_dep = dependency('libnvme-mi', required: true,
                          fallback : ['libnvme', 'libnvme_mi_dep'])
@@ -67,6 +67,15 @@ else
     endif
 endif
 conf.set('CONFIG_JSONC', json_c_dep.found(), description: 'Is json-c available?')
+
+# Check for libhugetlbfs availability (optional)
+if cc.has_header('hugetlbfs.h')
+  libhugetlbfs_dep = cc.find_library('hugetlbfs',
+                                     required : false)
+else
+  libhugetlbfs_dep = dependency('', required: false)
+endif
+conf.set('CONFIG_LIBHUGETLBFS', libhugetlbfs_dep.found(), description: 'Is libhugetlbfs available?')
 
 # Set the nvme-cli version
 conf.set('NVME_VERSION', '"' + meson.project_version() + '"')
@@ -148,11 +157,6 @@ conf.set10(
     ),
     description: 'Is sys/random.h(getrandom) include-able?'
 )
-conf.set10(
-    'HAVE_ATTRIBUTE_UNUSED',
-    cc.get_id() == 'clang',
-    description: 'Is compiler warning about unused static line function?'
-)
 
 if cc.has_function_attribute('fallthrough')
   conf.set('fallthrough', '__attribute__((__fallthrough__))')
@@ -213,7 +217,6 @@ endforeach
 systemd_files = [
   'nvmefc-boot-connections.service',
   'nvmf-autoconnect.service',
-  'nvmf-connect-nbft.service',
   'nvmf-connect.target',
   'nvmf-connect@.service',
 ]
@@ -227,9 +230,8 @@ foreach file : systemd_files
 endforeach
 
 udev_files = [
-  '65-persistent-net-nbft.rules',
   '70-nvmf-autoconnect.rules',
-  '71-nvmf-netapp.rules',
+  '71-nvmf-iopolicy-netapp.rules',
 ]
 
 foreach file : udev_files
@@ -277,7 +279,8 @@ subdir('Documentation')
 executable(
   'nvme',
   sources,
-  dependencies: [ libnvme_dep, libnvme_mi_dep, json_c_dep ],
+  dependencies: [ libnvme_dep, libnvme_mi_dep, json_c_dep,
+                  libhugetlbfs_dep ],
   link_args: '-ldl',
   include_directories: incdir,
   install: true,
@@ -326,6 +329,7 @@ if meson.version().version_compare('>=0.53.0')
     summary(path_dict, section: 'Paths')
     dep_dict = {
         'json-c':            json_c_dep.found(),
+        'libhugetlbfs':      libhugetlbfs_dep.found(),
     }
     summary(dep_dict, section: 'Dependencies')
     conf_dict = {

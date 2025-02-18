@@ -2,12 +2,12 @@
 .\"     Title: nvme-fdp-events
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 12/21/2023
+.\"      Date: 06/30/2023
 .\"    Manual: NVMe Manual
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-FDP\-EVENTS" "1" "12/21/2023" "NVMe" "NVMe Manual"
+.TH "NVME\-FDP\-EVENTS" "1" "06/30/2023" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,8 +32,10 @@ nvme-fdp-events \- Get Flexible Data Placement Events
 .SH "SYNOPSIS"
 .sp
 .nf
-\fInvme fdp events\fR <device> [\-\-endgrp\-id=<NUM> | \-e <NUM>] [\-\-host\-events | \-E]
-                        [\-\-raw\-binary | \-b] [\-\-output\-format=<fmt> | \-o <fmt>]
+\fInvme fdp events\fR <device> [\-\-endgrp\-id=<NUM> | \-e <NUM>]
+                           [\-\-host\-events | \-E]
+                           [\-\-raw\-binary | \-b]
+                           [\-\-output\-format=<FMT> | \-o <FMT>]
 .fi
 .SH "DESCRIPTION"
 .sp
@@ -55,7 +57,7 @@ Request the controller to report host events\&.
 Print the raw buffer to the standard output stream\&.
 .RE
 .PP
-\-o <fmt>, \-\-output\-format=<fmt>
+\-o <format>, \-\-output\-format=<format>
 .RS 4
 Set the reporting format to
 \fInormal\fR,

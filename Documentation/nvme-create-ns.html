@@ -756,7 +756,6 @@ nvme-create-ns(1) Manual Page
                         [--nmic=&lt;nmic&gt; | -m &lt;nmic&gt;]
                         [--anagrp-id=&lt;anagrpid&gt; | -a &lt;anagrpid&gt;]
                         [--nvmset-id=&lt;nvmsetid&gt; | -i &lt;nvmsetid&gt;]
-                        [--endg-id=&lt;endgid&gt; | -e &lt;endgid&gt;]
                         [--csi=&lt;command_set_identifier&gt; | -y &lt;command_set_identifier&gt;]
                         [--lbstm=&lt;lbstm&gt; | -l &lt;lbstm&gt;]
                         [--nphndls=&lt;nphndls&gt; | -n &lt;nphndls&gt;]
@@ -766,10 +765,9 @@ nvme-create-ns(1) Manual Page
                         [--ncap-si=&lt;ncap-si&gt; | -C &lt;ncap-si&gt;]
                         [--azr | -z]
                         [--rar=&lt;rar&gt; | -r &lt;rar&gt;]
-                        [--ror=&lt;ror&gt; | -O &lt;ror&gt;]
+                        [--ror=&lt;ror&gt; | -o &lt;ror&gt;]
                         [--rnumzrwa=&lt;rnumzrwa&gt; | -u &lt;rnumzrwa&gt;]
-                        [--phndls=&lt;placement-handle-list,&gt; | -p &lt;placement-handle-list,&gt;]
-                        [--output-format=&lt;fmt&gt; | -o &lt;fmt&gt;] [--verbose | -v]</pre>
+                        [--phndls=&lt;placement-handle-list,&gt; | -p &lt;placement-handle-list,&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -868,17 +866,6 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 </p>
 </dd>
 <dt class="hdlist1">
--e &lt;endgid&gt;
-</dt>
-<dt class="hdlist1">
---endg-id=&lt;endgid&gt;
-</dt>
-<dd>
-<p>
-        This field specifies the identifier of the endurance group.
-</p>
-</dd>
-<dt class="hdlist1">
 -y &lt;command_set_identifier&gt;
 </dt>
 <dt class="hdlist1">
@@ -923,8 +910,8 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 <dd>
 <p>
         Target block size the new namespace should be formatted as. Potential FLBAS
-        values will be values will be scanned and the lowest numbered will be
-        selected for the create-ns operation. Conflicts with --flbas argument.
+  values will be values will be scanned and the lowest numbered will be
+  selected for the create-ns operation. Conflicts with --flbas argument.
 </p>
 </dd>
 <dt class="hdlist1">
@@ -980,7 +967,7 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
 </p>
 </dd>
 <dt class="hdlist1">
--O &lt;ror&gt;
+-o &lt;ror&gt;
 </dt>
 <dt class="hdlist1">
 --ror=&lt;ror&gt;
@@ -1015,29 +1002,6 @@ device (ex: /dev/nvme0), or a namespace block device (ex: /dev/nvme0n1).</p></di
         with each Placement Handle.
 </p>
 </dd>
-<dt class="hdlist1">
--o &lt;fmt&gt;
-</dt>
-<dt class="hdlist1">
---output-format=&lt;fmt&gt;
-</dt>
-<dd>
-<p>
-        Set the reporting format to <em>normal</em>, <em>json</em> or <em>binary</em>. Only one
-        output format can be used at a time.
-</p>
-</dd>
-<dt class="hdlist1">
--v
-</dt>
-<dt class="hdlist1">
---verbose
-</dt>
-<dd>
-<p>
-        Increase the information detail in the output.
-</p>
-</dd>
 </dl></div>
 </div>
 </div>
@@ -1069,7 +1033,7 @@ Create a namespace:
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2023-12-21 15:49:29 CET
+ 2023-06-30 15:20:22 CEST
 </div>
 </div>
 </body>

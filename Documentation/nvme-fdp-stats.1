@@ -2,12 +2,12 @@
 .\"     Title: nvme-fdp-stats
 .\"    Author: [FIXME: author] [see http://www.docbook.org/tdg5/en/html/author]
 .\" Generator: DocBook XSL Stylesheets vsnapshot <http://docbook.sf.net/>
-.\"      Date: 12/21/2023
+.\"      Date: 06/30/2023
 .\"    Manual: NVMe Manual
 .\"    Source: NVMe
 .\"  Language: English
 .\"
-.TH "NVME\-FDP\-STATS" "1" "12/21/2023" "NVMe" "NVMe Manual"
+.TH "NVME\-FDP\-STATS" "1" "06/30/2023" "NVMe" "NVMe Manual"
 .\" -----------------------------------------------------------------
 .\" * Define some portability stuff
 .\" -----------------------------------------------------------------
@@ -32,8 +32,9 @@ nvme-fdp-stats \- Get Flexible Data Placement Statistics
 .SH "SYNOPSIS"
 .sp
 .nf
-\fInvme fdp stats\fR <device> [\-\-endgrp\-id=<NUM> | \-e <NUM>] [\-\-raw\-binary | \-b]
-                        [\-\-output\-format=<fmt> | \-o <fmt>]
+\fInvme fdp stats\fR <device> [\-\-endgrp\-id=<NUM> | \-e <NUM>]
+                          [\-\-raw\-binary | \-b]
+                          [\-\-output\-format=<FMT> | \-o <FMT>]
 .fi
 .SH "DESCRIPTION"
 .sp
@@ -50,7 +51,7 @@ The endurance group identifier to use when requesting the log page\&.
 Print the raw buffer to the standard output stream\&.
 .RE
 .PP
-\-o <fmt>, \-\-output\-format=<fmt>
+\-o <format>, \-\-output\-format=<format>
 .RS 4
 Set the reporting format to
 \fInormal\fR,

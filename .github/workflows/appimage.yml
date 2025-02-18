@@ -13,31 +13,41 @@ jobs:
   build-appimage:
     name: build AppImage
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/igaw/linux-nvme/debian:latest
     steps:
-     - uses: actions/checkout@v4
-     - name: build
-       run: |
-         scripts/build.sh appimage
-     - name: build AppImage
-       uses: AppImageCrafters/build-appimage@v1.3
-       with:
-         recipe: .github/AppImageBuilder.yml
-     - uses: actions/upload-artifact@v4
-       name: upload artifacts to github
-       with:
-         name: AppImage
-         path: '*.AppImage*'
+      - uses: actions/checkout@v3
+      - name: install dependencies
+        run: sudo apt-get install libjson-c-dev libssl-dev libdbus-1-dev libhugetlbfs-dev
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      - uses: BSFishy/meson-build@v1.0.3
+        with:
+          setup-options: >
+            --werror
+            --buildtype=release
+            --prefix=/usr
+            --force-fallback-for=libnvme
+            -Dlibnvme:werror=false
+          action: install
+          meson-version: 0.61.2
+      - name: build AppImage
+        uses: AppImageCrafters/build-appimage@v1.3
+        with:
+          recipe: .github/AppImageBuilder.yml
+      - uses: actions/upload-artifact@v3
+        name: upload artifacts to github
+        with:
+          name: AppImage
+          path: '*.AppImage*'
 
   deploy-appimage:
     name: deploy AppImage
     runs-on: ubuntu-latest
     needs: build-appimage
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository == 'linux-nvme/nvme-cli' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/master' }}
     steps:
       - name: Download artifact
-        uses: dawidd6/action-download-artifact@v3
+        uses: dawidd6/action-download-artifact@v2
         with:
           workflow: ${{ github.event.workflow_run.workflow_id }}
           workflow_conclusion: success

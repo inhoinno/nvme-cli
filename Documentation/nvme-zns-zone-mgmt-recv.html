@@ -750,10 +750,12 @@ nvme-zns-zone-mgmt-recv(1) Manual Page
 <div class="sectionbody">
 <div class="verseblock">
 <pre class="content"><em>nvme zns zone-mgmt-recv</em> &lt;device&gt; [--namespace-id=&lt;NUM&gt; | -n &lt;NUM&gt;]
-                        [--start-lba=&lt;LBA&gt; | -s &lt;LBA&gt;]
-                        [--data-len=&lt;IONUM&gt;, -l &lt;IONUM&gt;]
-                        [--zra=&lt;NUM&gt;, -z &lt;NUM&gt;] [--zrasf=&lt;NUM&gt;, -a &lt;NUM&gt;]
-                        [--zra-spec-feat, -f] [--output-format=&lt;fmt&gt;, -o &lt;fmt&gt;]</pre>
+                                   [--start-lba=&lt;LBA&gt; | -s &lt;LBA&gt;]
+                                   [--data-len=&lt;IONUM&gt;, -l &lt;IONUM&gt;]
+                                   [--zra=&lt;NUM&gt;, -z &lt;NUM&gt;]
+                                   [--zrasf=&lt;NUM&gt;, -a &lt;NUM&gt;]
+                                   [--zra-spec-feat, -f]
+                                   [--output-format=&lt;FMT&gt;, -o &lt;FMT&gt;]</pre>
 <div class="attribution">
 </div></div>
 </div>
@@ -799,8 +801,8 @@ binary.</p></div>
 </p>
 </dd>
 </dl></div>
-<div class="paragraph"><p>-l &lt;NUM&gt;
---data-len=&lt;NUM&gt;
+<div class="paragraph"><p>--data-len=&lt;NUM&gt;
+-l &lt;NUM&gt;
         Received data buffer length</p></div>
 <div class="dlist"><dl>
 <dt class="hdlist1">
@@ -831,10 +833,10 @@ binary.</p></div>
 </p>
 </dd>
 <dt class="hdlist1">
--o &lt;fmt&gt;
+-o &lt;FMT&gt;
 </dt>
 <dt class="hdlist1">
---output-format=&lt;fmt&gt;
+--output-format=&lt;FMT&gt;
 </dt>
 <dd>
 <p>
@@ -880,7 +882,7 @@ Binary dump of a report all zones
 <div id="footer">
 <div id="footer-text">
 Last updated
- 2023-12-21 15:49:29 CET
+ 2023-06-30 15:20:22 CEST
 </div>
 </div>
 </body>

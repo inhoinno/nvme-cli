@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 usage() {
     echo "Usage: build.sh [-b [release|debug]] "
@@ -17,10 +16,8 @@ usage() {
     echo "configs with meson:"
     echo "  [default]           default settings"
     echo "  fallback            download all dependencies"
-    echo "                      and build them as shared libraries"
+    echo "                      and build them as shared libaries"
     echo "  cross               use cross toolchain to build"
-    echo "  coverage            build coverage report"
-    echo "  appimage            build AppImage target"
     echo ""
     echo "configs with muon:"
     echo "  [default]           minimal static build"
@@ -59,9 +56,6 @@ CONFIG=${1:-"default"}
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
 BUILDDIR="$(pwd)/.build-ci"
-TOOLDIR="$(pwd)/.build-tools"
-
-fn_exists() { declare -F "$1" > /dev/null; }
 
 config_meson_default() {
     CC="${CC}" "${MESON}" setup                 \
@@ -95,26 +89,6 @@ config_meson_cross() {
         "${BUILDDIR}"
 }
 
-config_meson_coverage() {
-    CC="${CC}" "${MESON}" setup                 \
-        --werror                                \
-        --buildtype="${BUILDTYPE}"              \
-        --force-fallback-for=libnvme            \
-        -Dlibnvme:werror=false                  \
-        -Db_coverage=true                       \
-        "${BUILDDIR}"
-}
-
-config_meson_appimage() {
-    CC="${CC}" "${MESON}" setup                 \
-        --werror                                \
-        --buildtype="${BUILDTYPE}"              \
-        --force-fallback-for=libnvme            \
-        --prefix=/usr                           \
-        -Dlibnvme:werror=false                  \
-        "${BUILDDIR}"
-}
-
 build_meson() {
     "${MESON}" compile                          \
         -C "${BUILDDIR}"
@@ -125,68 +99,45 @@ test_meson() {
         -C "${BUILDDIR}"
 }
 
-test_meson_coverage() {
-    "${MESON}" test                             \
-        -C "${BUILDDIR}"
-    ninja -C "${BUILDDIR}" coverage --verbose
-}
-
-install_meson_appimage() {
-    "${MESON}" install                             \
-        -C "${BUILDDIR}"
-}
-
 tools_build_samurai() {
-    if [ ! -d "${TOOLDIR}"/samurai ]; then
-        git clone --depth 1 https://github.com/michaelforney/samurai.git \
-            "${TOOLDIR}/samurai"
-    fi
+    mkdir -p "${BUILDDIR}"/build-tools
+    git clone --depth 1 https://github.com/michaelforney/samurai.git \
+        "${BUILDDIR}/build-tools/samurai"
+    pushd "${BUILDDIR}/build-tools/samurai" || exit 1
 
-    if [[ -f "${TOOLDIR}/samurai/samu" ]]; then
-        return
-    fi
-
-    pushd "${TOOLDIR}/samurai" || exit 1
     CC="${CC}" make
+    SAMU="${BUILDDIR}/build-tools/samurai/samu"
+
     popd || exit 1
 }
 
 tools_build_muon() {
-    if [ ! -d "${TOOLDIR}/muon" ]; then
-        git clone --depth 1 https://git.sr.ht/~lattis/muon \
-            "${TOOLDIR}/muon"
-    fi
+    mkdir -p "${BUILDDIR}"/build-tools
+    git clone --depth 1 https://git.sr.ht/~lattis/muon \
+        "${BUILDDIR}/build-tools/muon"
+    pushd "${BUILDDIR}/build-tools/muon" || exit 1
 
-    if [[ -f "${TOOLDIR}/build-muon/muon" ]]; then
-        return
-    fi
-
-    pushd "${TOOLDIR}/muon" || exit 1
-
-    CC="${CC}" CFLAGS="${CFLAGS} -std=c99" ninja="${SAMU}" ./bootstrap.sh stage1
+    CC="${CC}" ninja="${SAMU}" ./bootstrap.sh stage1
 
     CC="${CC}" ninja="${SAMU}" stage1/muon setup        \
-        -Dprefix="${TOOLDIR}"                           \
+        -Dprefix="${BUILDDIR}/build-tools"              \
+        -Dlibcurl=enabled                               \
+        -Dlibarchive=enabled                            \
+        -Dlibpkgconf=enabled                            \
         -Ddocs=disabled                                 \
         -Dsamurai=disabled                              \
-        -Dbestline=disabled                             \
-        "${TOOLDIR}/build-muon"
-    "${SAMU}" -C "${TOOLDIR}/build-muon"
+        "${BUILDDIR}/build-tools/.build-muon"
+    "${SAMU}" -C "${BUILDDIR}/build-tools/.build-muon"
     MUON="${BUILDDIR}/build-tools/.build-muon/muon"
 
-    # "${TOOLDIR}/build-muon/muon" \
-    #    -C "${TOOLDIR}/build-muon" test
+    # "${MUON}" -C "${BUILDDIR}/build-tools/.build-muon" test
 
     popd || exit 1
 }
 
 config_muon_default() {
-    # wrap_mode=forcefallback depends on git being available
-
-    CC="${CC}" CFLAGS="${CFLAGS}" ninja="${SAMU}"       \
-        "${MUON}" setup                                 \
-        -Ddefault_library=static                        \
-        -Dc_link_args="-static"                         \
+    CC="${CC}" CFLAGS="${CFLAGS} -static"               \
+        ninja="${SAMU}" "${MUON}" setup                 \
         -Dwrap_mode=forcefallback                       \
         -Dlibnvme:json-c=disabled                       \
         -Dlibnvme:python=disabled                       \
@@ -205,26 +156,22 @@ test_muon() {
     ldd "${BUILDDIR}/nvme" 2>&1 | grep 'not a dynamic executable' || exit 1
 }
 
+rm -rf "${BUILDDIR}"
+
 if [[ "${BUILDTOOL}" == "muon" ]]; then
-    SAMU="$(which samu 2> /dev/null)" || true
-    if [[ -z "${SAMU}" ]]; then
+    if ! which samu ; then
         tools_build_samurai
-        SAMU="${TOOLDIR}/samurai/samu"
+    else
+        SAMU="$(which samu)"
     fi
 
-    MUON="$(which muon 2> /dev/null)" || true
-    if [[ -z "${MUON}" ]]; then
+    if ! which muon ; then
         tools_build_muon
-        MUON="${TOOLDIR}/build-muon/muon"
+    else
+        MUON="$(which muon)"
     fi
 fi
 
-echo "samu: ${SAMU}"
-echo "muon: ${MUON}"
-
-rm -rf "${BUILDDIR}"
-
 config_"${BUILDTOOL}"_"${CONFIG}"
-fn_exists "build_${BUILDTOOL}_${CONFIG}" && "build_${BUILDTOOL}_${CONFIG}" || build_"${BUILDTOOL}"
-fn_exists "test_${BUILDTOOL}_${CONFIG}" && "test_${BUILDTOOL}_${CONFIG}" || test_"${BUILDTOOL}"
-fn_exists "install_${BUILDTOOL}_${CONFIG}" && "install_${BUILDTOOL}_${CONFIG}" || true;
+build_"${BUILDTOOL}"
+test_"${BUILDTOOL}"

@@ -15,21 +15,21 @@
 #include "util/types.h"
 #include "common.h"
 
-#define nvme_print(name, flags, ...)				\
-	do {							\
-		struct print_ops *ops = nvme_print_ops(flags);	\
-		if (ops && ops->name)				\
-			ops->name(__VA_ARGS__);			\
-	} while (false)
-
-#define nvme_print_output_format(name, ...)			\
-	nvme_print(name, nvme_is_output_format_json() ? JSON : NORMAL, ##__VA_ARGS__);
+#define nvme_print(name, flags, ...)			\
+do {							\
+	struct print_ops *ops = nvme_print_ops(flags);	\
+	if (ops) {					\
+		if (ops->name)				\
+			ops->name(__VA_ARGS__);		\
+		return;					\
+	}						\
+} while(0);
 
 static struct print_ops *nvme_print_ops(enum nvme_print_flags flags)
 {
 	struct print_ops *ops = NULL;
 
-	if (flags & JSON || nvme_is_output_format_json())
+	if (flags & JSON)
 		ops = nvme_get_json_print_ops(flags);
 	else if (flags & BINARY)
 		ops = nvme_get_binary_print_ops(flags);
@@ -135,6 +135,7 @@ void nvme_show_predictable_latency_per_nvmset(
 	__u16 nvmset_id, const char *devname,
 	enum nvme_print_flags flags)
 {
+
 	nvme_print(predictable_latency_per_nvmset, flags,
 		   plpns_log, nvmset_id, devname);
 }
@@ -257,12 +258,6 @@ void nvme_show_boot_part_log(void *bp_log, const char *devname,
 	nvme_print(boot_part_log, flags, bp_log, devname, size);
 }
 
-void nvme_show_phy_rx_eom_log(struct nvme_phy_rx_eom_log *log, __u16 controller,
-	enum nvme_print_flags flags)
-{
-	nvme_print(phy_rx_eom_log, flags, log, controller);
-}
-
 void nvme_show_media_unit_stat_log(struct nvme_media_unit_stat_log *mus_log,
 				   enum nvme_print_flags flags)
 {
@@ -278,6 +273,7 @@ void nvme_show_fdp_configs(struct nvme_fdp_config_log *log, size_t len,
 void nvme_show_fdp_usage(struct nvme_fdp_ruhu_log *log, size_t len,
 		enum nvme_print_flags flags)
 {
+
 	nvme_print(fdp_usage_log, flags,log, len);
 }
 
@@ -310,6 +306,7 @@ void nvme_show_fdp_events(struct nvme_fdp_events_log *log,
 void nvme_show_fdp_ruh_status(struct nvme_fdp_ruh_status *status, size_t len,
 		enum nvme_print_flags flags)
 {
+
 	nvme_print(fdp_ruh_status, flags, status, len);
 }
 
@@ -379,7 +376,37 @@ void nvme_show_relatives(const char *name)
 
 void d(unsigned char *buf, int len, int width, int group)
 {
-	nvme_print(d, NORMAL, buf, len, width, group);
+	int i, offset = 0, line_done = 0;
+	char ascii[32 + 1];
+
+	assert(width < sizeof(ascii));
+	printf("     ");
+	for (i = 0; i <= 15; i++)
+		printf("%3x", i);
+	for (i = 0; i < len; i++) {
+		line_done = 0;
+		if (i % width == 0)
+			printf( "\n%04x:", offset);
+		if (i % group == 0)
+			printf( " %02x", buf[i]);
+		else
+			printf( "%02x", buf[i]);
+		ascii[i % width] = (buf[i] >= '!' && buf[i] <= '~') ? buf[i] : '.';
+		if (((i + 1) % width) == 0) {
+			ascii[i % width + 1] = '\0';
+			printf( " \"%.*s\"", width, ascii);
+			offset += width;
+			line_done = 1;
+		}
+	}
+	if (!line_done) {
+		unsigned b = width - (i % width);
+		ascii[i % width + 1] = '\0';
+		printf( " %*s \"%.*s\"",
+				2 * b + b / group + (b % group ? 1 : 0), "",
+				width, ascii);
+	}
+	printf( "\n");
 }
 
 void d_raw(unsigned char *buf, unsigned len)
@@ -391,29 +418,20 @@ void d_raw(unsigned char *buf, unsigned len)
 
 void nvme_show_status(int status)
 {
-	struct print_ops *ops = nvme_print_ops(NORMAL);
+	struct print_ops *ops;
 
-	if (nvme_is_output_format_json())
+	if (argconfig_output_format_json(false))
 		ops = nvme_print_ops(JSON);
+	else
+		ops =nvme_print_ops(0);
 
-	if (ops && ops->show_status)
-		ops->show_status(status);
-}
+	if (!ops)
+		return;
 
-void nvme_show_error_status(int status, const char *msg, ...)
-{
-	struct print_ops *ops = nvme_print_ops(NORMAL);
-	va_list ap;
+	if (!ops->show_status)
+		return;
 
-	va_start(ap, msg);
-
-	if (nvme_is_output_format_json())
-		ops = nvme_print_ops(JSON);
-
-	if (ops && ops->show_status)
-		ops->show_error_status(status, msg, ap);
-
-	va_end(ap);
+	ops->show_status(status);
 }
 
 void nvme_show_id_ctrl_rpmbs(__le32 ctrl_rpmbs, enum nvme_print_flags flags)
@@ -477,22 +495,10 @@ void nvme_show_list_ns(struct nvme_ns_list *ns_list, enum nvme_print_flags flags
 	nvme_print(ns_list, flags, ns_list);
 }
 
-void nvme_zns_start_zone_list(__u64 nr_zones, struct json_object **zone_list,
-			      enum nvme_print_flags flags)
-{
-	nvme_print(zns_start_zone_list, flags, nr_zones, zone_list);
-}
-
 void nvme_show_zns_changed(struct nvme_zns_changed_zone_log *log,
 			   enum nvme_print_flags flags)
 {
 	nvme_print(zns_changed_zone_log, flags, log);
-}
-
-void nvme_zns_finish_zone_list(__u64 nr_zones, struct json_object *zone_list,
-			       enum nvme_print_flags flags)
-{
-	nvme_print(zns_finish_zone_list, flags, nr_zones, zone_list);
 }
 
 const char *nvme_zone_type_to_string(__u8 cond)
@@ -607,13 +613,13 @@ const char *nvme_trtype_to_string(__u8 trtype)
 }
 
 void nvme_show_error_log(struct nvme_error_log_page *err_log, int entries,
-			 const char *devname, enum nvme_print_flags flags)
+			const char *devname, enum nvme_print_flags flags)
 {
 	nvme_print(error_log, flags, err_log, entries, devname);
 }
 
 void nvme_show_resv_report(struct nvme_resv_status *status, int bytes,
-			   bool eds, enum nvme_print_flags flags)
+	bool eds, enum nvme_print_flags flags)
 {
 	nvme_print(resv_report, flags, status, bytes, eds);
 }
@@ -652,19 +658,12 @@ const char *nvme_log_to_string(__u8 lid)
 	case NVME_LOG_LID_ENDURANCE_GROUP:		return "Endurance Group Information";
 	case NVME_LOG_LID_PREDICTABLE_LAT_NVMSET:	return "Predictable Latency Per NVM Set";
 	case NVME_LOG_LID_PREDICTABLE_LAT_AGG:		return "Predictable Latency Event Aggregate";
-	case NVME_LOG_LID_MEDIA_UNIT_STATUS:		return "Media Unit Status";
-	case NVME_LOG_LID_SUPPORTED_CAP_CONFIG_LIST:	return "Supported Capacity Configuration List";
 	case NVME_LOG_LID_ANA:				return "Asymmetric Namespace Access";
 	case NVME_LOG_LID_PERSISTENT_EVENT:		return "Persistent Event Log";
 	case NVME_LOG_LID_LBA_STATUS:			return "LBA Status Information";
 	case NVME_LOG_LID_ENDURANCE_GRP_EVT:		return "Endurance Group Event Aggregate";
 	case NVME_LOG_LID_FID_SUPPORTED_EFFECTS:	return "Feature Identifiers Supported and Effects";
-	case NVME_LOG_LID_MI_CMD_SUPPORTED_EFFECTS:	return "NVMe-MI Commands Supported and Effects";
 	case NVME_LOG_LID_BOOT_PARTITION:		return "Boot Partition";
-	case NVME_LOG_LID_FDP_CONFIGS:			return "FDP Configurations";
-	case NVME_LOG_LID_FDP_RUH_USAGE:		return "Reclaim Unit Handle Usage";
-	case NVME_LOG_LID_FDP_STATS:			return "FDP Statistics";
-	case NVME_LOG_LID_FDP_EVENTS:			return "FDP Events";
 	case NVME_LOG_LID_DISCOVER:			return "Discovery";
 	case NVME_LOG_LID_RESERVATION:			return "Reservation Notification";
 	case NVME_LOG_LID_SANITIZE:			return "Sanitize Status";
@@ -789,9 +788,9 @@ const char *nvme_select_to_string(int sel)
 	}
 }
 
-void nvme_show_select_result(enum nvme_features_id fid, __u32 result)
+void nvme_show_select_result(__u32 result)
 {
-	nvme_print(select_result, NORMAL, fid, result);
+	nvme_print(select_result, 0, result);
 }
 
 const char *nvme_feature_lba_type_to_string(__u8 type)
@@ -868,8 +867,9 @@ const char *nvme_ns_wp_cfg_to_string(enum nvme_ns_write_protect_cfg state)
 }
 
 void nvme_directive_show(__u8 type, __u8 oper, __u16 spec, __u32 nsid, __u32 result,
-			 void *buf, __u32 len, enum nvme_print_flags flags)
+	void *buf, __u32 len, enum nvme_print_flags flags)
 {
+
 	nvme_print(directive, flags, type, oper, spec, nsid, result, buf, len);
 }
 
@@ -887,7 +887,7 @@ const char *nvme_plm_window_to_string(__u32 plm)
 
 void nvme_show_lba_status_info(__u32 result)
 {
-	nvme_print(lba_status_info, NORMAL, result);
+	nvme_print(lba_status_info, 0, result);
 }
 
 const char *nvme_host_metadata_type_to_string(enum nvme_features_id fid,
@@ -950,18 +950,13 @@ const char *nvme_host_metadata_type_to_string(enum nvme_features_id fid,
        }
 }
 
-void nvme_feature_show(enum nvme_features_id fid, int sel, unsigned int result)
-{
-	nvme_print(show_feature, NORMAL, fid, sel, result);
-}
-
 void nvme_feature_show_fields(enum nvme_features_id fid, unsigned int result, unsigned char *buf)
 {
-	nvme_print(show_feature_fields, NORMAL, fid, result, buf);
+	nvme_print(show_feature_fields, 0, fid, result, buf);
 }
 
 void nvme_show_lba_status(struct nvme_lba_status *list, unsigned long len,
-			  enum nvme_print_flags flags)
+			enum nvme_print_flags flags)
 {
 	nvme_print(lba_status, flags, list, len);
 }
@@ -1009,7 +1004,7 @@ void nvme_generic_full_path(nvme_ns_t n, char *path, size_t len)
 
 void nvme_show_list_item(nvme_ns_t n)
 {
-	nvme_print(list_item, NORMAL, n);
+	nvme_print(list_item, 0, n);
 }
 
 void nvme_show_list_items(nvme_root_t r, enum nvme_print_flags flags)
@@ -1021,37 +1016,45 @@ void nvme_show_topology(nvme_root_t r,
 			enum nvme_cli_topo_ranking ranking,
 			enum nvme_print_flags flags)
 {
-	if (ranking == NVME_CLI_TOPO_NAMESPACE)
-		nvme_print(topology_namespace, flags, r);
-	else
-		nvme_print(topology_ctrl, flags, r);
+	nvme_print(topology_namespace, flags, r);
 }
 
 void nvme_show_message(bool error, const char *msg, ...)
 {
-	struct print_ops *ops = nvme_print_ops(NORMAL);
+	struct print_ops *ops;
 	va_list ap;
-
 	va_start(ap, msg);
 
-	if (nvme_is_output_format_json())
+	if (argconfig_output_format_json(false))
 		ops = nvme_print_ops(JSON);
+	else
+		ops = nvme_print_ops(0);
 
-	if (ops && ops->show_message)
-		ops->show_message(error, msg, ap);
+	if (!ops)
+		return;
+
+	if (!ops->show_message)
+		return;
+	ops->show_message(error, msg, ap);
 
 	va_end(ap);
 }
 
 void nvme_show_perror(const char *msg)
 {
-	struct print_ops *ops = nvme_print_ops(NORMAL);
+	struct print_ops *ops;
 
-	if (nvme_is_output_format_json())
+	if (argconfig_output_format_json(false))
 		ops = nvme_print_ops(JSON);
+	else
+		ops = nvme_print_ops(0);
 
-	if (ops && ops->show_perror)
-		ops->show_perror(msg);
+	if (!ops)
+		return;
+
+	if (!ops->show_perror)
+		return;
+	ops->show_perror(msg);
 }
 
 void nvme_show_discovery_log(struct nvmf_discovery_log *log, uint64_t numrec,
@@ -1063,14 +1066,4 @@ void nvme_show_discovery_log(struct nvmf_discovery_log *log, uint64_t numrec,
 void nvme_show_connect_msg(nvme_ctrl_t c, enum nvme_print_flags flags)
 {
 	nvme_print(connect_msg, flags, c);
-}
-
-void nvme_show_init(void)
-{
-	nvme_print_output_format(show_init);
-}
-
-void nvme_show_finish(void)
-{
-	nvme_print_output_format(show_finish);
 }
