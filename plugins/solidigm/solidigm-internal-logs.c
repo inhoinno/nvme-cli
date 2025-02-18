@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <inttypes.h>
 #include <linux/limits.h>
-#include <time.h>
 
 #include "common.h"
 #include "nvme.h"
@@ -123,7 +122,7 @@ struct nlog_dump_header4_1 {
 
 struct config {
 	__u32 namespace_id;
-	char *dir_prefix;
+	char *file_prefix;
 	char *type;
 	bool verbose;
 };
@@ -223,7 +222,6 @@ static int dump_assert_logs(struct nvme_dev *dev, struct config cfg)
 	__u8 buf[INTERNAL_LOG_MAX_BYTE_TRANSFER];
 	__u8 head_buf[INTERNAL_LOG_MAX_BYTE_TRANSFER];
 	char file_path[PATH_MAX];
-	char file_name[] = "AssertLog.bin";
 	struct assert_dump_header *ad = (struct assert_dump_header *) head_buf;
 	struct nvme_passthru_cmd cmd = {
 		.opcode = 0xd2,
@@ -238,8 +236,7 @@ static int dump_assert_logs(struct nvme_dev *dev, struct config cfg)
 	if (err)
 		return err;
 
-	snprintf(file_path, sizeof(file_path), "%.*s/%s",
-		 (int) (sizeof(file_path) - sizeof(file_name) - 1), cfg.dir_prefix, file_name);
+	sprintf(file_path, "%s_AssertLog.bin", cfg.file_prefix);
 	output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (output < 0)
 		return -errno;
@@ -294,7 +291,7 @@ static int dump_event_logs(struct nvme_dev *dev, struct config cfg)
 	err = read_header(&cmd, dev_fd(dev));
 	if (err)
 		return err;
-	snprintf(file_path, sizeof(file_path), "%s/EventLog.bin", cfg.dir_prefix);
+	sprintf(file_path, "%s_EventLog.bin", cfg.file_prefix);
 	output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 	if (output < 0)
 		return -errno;
@@ -390,8 +387,7 @@ static int dump_nlogs(struct nvme_dev *dev, struct config cfg, int core)
 			count = nlog_header->totalnlogs;
 			core_num = core < 0 ? nlog_header->corecount : 0;
 			if (!header_size) {
-				snprintf(file_path, sizeof(file_path), "%s/NLog.bin",
-					 cfg.dir_prefix);
+				sprintf(file_path, "%s_NLog.bin", cfg.file_prefix);
 				output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
 				if (output < 0)
 					return -errno;
@@ -427,32 +423,25 @@ enum telemetry_type {
 
 static int dump_telemetry(struct nvme_dev *dev, struct config cfg, enum telemetry_type ttype)
 {
-	_cleanup_free_ struct nvme_telemetry_log *log = NULL;
+	struct nvme_telemetry_log *log = NULL;
 	size_t log_size = 0;
-	int err = 0;
+	int err = 0, output;
 	__u8 *buffer = NULL;
 	size_t bytes_remaining = 0;
 	enum nvme_telemetry_da da;
 	size_t max_data_tx;
 	char file_path[PATH_MAX];
-	char *file_name;
-	char *log_descr;
-	struct stat sb;
-
-	_cleanup_file_ int output = -1;
+	char *log_name;
 
 	switch (ttype) {
 	case HOSTGENNEW:
-		file_name = "lid_0x07_lsp_0x01_lsi_0x0000.bin";
-		log_descr = "Generated Host Initiated";
+		log_name = "TelemetryHostGenNew";
 		break;
 	case HOSTGENOLD:
-		file_name = "lid_0x07_lsp_0x00_lsi_0x0000.bin";
-		log_descr = "Existing Host Initiated";
+		log_name = "TelemetryHostGenOld";
 		break;
 	case CONTROLLER:
-		file_name = "lid_0x08_lsp_0x00_lsi_0x0000.bin";
-		log_descr = "Controller Initiated";
+		log_name = "TelemetryController";
 		break;
 	default:
 		return -EINVAL;
@@ -463,6 +452,11 @@ static int dump_telemetry(struct nvme_dev *dev, struct config cfg, enum telemetr
 
 	if (max_data_tx > DRIVER_MAX_TX_256K)
 		max_data_tx = DRIVER_MAX_TX_256K;
+
+	sprintf(file_path, "%s_%s.bin", cfg.file_prefix, log_name);
+	output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+	if (output < 0)
+		return -errno;
 
 	switch (ttype) {
 	case HOSTGENNEW:
@@ -480,20 +474,7 @@ static int dump_telemetry(struct nvme_dev *dev, struct config cfg, enum telemetr
 	}
 
 	if (err)
-		return err;
-
-	snprintf(file_path, sizeof(file_path), "%s/log_pages", cfg.dir_prefix);
-	if (!(stat(file_path, &sb) == 0 && S_ISDIR(sb.st_mode))) {
-		if (mkdir(file_path, 777) != 0) {
-			perror(file_path);
-			return -errno;
-		}
-	}
-
-	snprintf(file_path, sizeof(file_path), "%s/log_pages/%s", cfg.dir_prefix, file_name);
-	output = open(file_path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
-	if (output < 0)
-		return -errno;
+		goto tele_close_output;
 
 	bytes_remaining = log_size;
 	buffer = (__u8 *)log;
@@ -505,49 +486,45 @@ static int dump_telemetry(struct nvme_dev *dev, struct config cfg, enum telemetr
 			err = -errno;
 			goto tele_close_output;
 		}
-
 		bytes_remaining -= bytes_written;
 		buffer += bytes_written;
 	}
-	printf("Successfully wrote %s Telemetry log to %s\n", log_descr, file_path);
+	printf("Successfully wrote log to %s\n", file_path);
 
 tele_close_output:
+	free(log);
 	close(output);
+
 	return err;
 }
 
 int solidigm_get_internal_log(int argc, char **argv, struct command *command,
 				struct plugin *plugin)
 {
-	char folder[PATH_MAX];
-	char zip_name[PATH_MAX];
-	char *output_path;
 	char sn_prefix[sizeof(((struct nvme_id_ctrl *)0)->sn)+1];
 	int log_count = 0;
 	int err;
-	_cleanup_nvme_dev_ struct nvme_dev *dev = NULL;
+	struct nvme_dev *dev;
 	bool all = false;
-	time_t t;
-	struct tm tm;
 
 	const char *desc = "Get Debug Firmware Logs and save them.";
 	const char *type =
 	    "Log type: ALL, CONTROLLERINITTELEMETRY, HOSTINITTELEMETRY, HOSTINITTELEMETRYNOGEN, NLOG, ASSERT, EVENT. Defaults to ALL.";
-	const char *prefix = "Output dir prefix; defaults to device serial number.";
+	const char *prefix = "Output file prefix; defaults to device serial number.";
 	const char *verbose = "To print out verbose info.";
 	const char *namespace_id = "Namespace to get logs from.";
 
 
 	struct config cfg = {
 		.namespace_id = NVME_NSID_ALL,
-		.dir_prefix = NULL,
+		.file_prefix = NULL,
 		.type = NULL,
 	};
 
 	OPT_ARGS(opts) = {
 		OPT_STR("type",           't', &cfg.type,         type),
 		OPT_UINT("namespace-id",  'n', &cfg.namespace_id, namespace_id),
-		OPT_FILE("dir-prefix",   'p', &cfg.dir_prefix,  prefix),
+		OPT_FILE("file-prefix",   'p', &cfg.file_prefix,  prefix),
 		OPT_FLAG("verbose",       'v', &cfg.verbose,      verbose),
 		OPT_END()
 	};
@@ -556,22 +533,12 @@ int solidigm_get_internal_log(int argc, char **argv, struct command *command,
 	if (err)
 		return err;
 
-	if (!cfg.dir_prefix) {
+	if (!cfg.file_prefix) {
 		err = get_serial_number(sn_prefix, dev_fd(dev));
 		if (err)
-			return err;
-		cfg.dir_prefix = sn_prefix;
+			goto out_dev;
+		cfg.file_prefix = sn_prefix;
 	}
-	t = time(NULL);
-	tm = *localtime(&t);
-	snprintf(folder, sizeof(folder), "%s-%d%02d%02d%02d%02d%02d", cfg.dir_prefix,
-		 tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
-	if (mkdir(folder, 0777) != 0) {
-		perror("mkdir");
-		return -errno;
-	}
-	cfg.dir_prefix = folder;
-	output_path = folder;
 
 	if (!cfg.type)
 		cfg.type = "ALL";
@@ -580,9 +547,8 @@ int solidigm_get_internal_log(int argc, char **argv, struct command *command,
 			*p = toupper(*p);
 	}
 
-	if (!strcmp(cfg.type, "ALL")) {
+	if (!strcmp(cfg.type, "ALL"))
 		all = true;
-	}
 	if (all || !strcmp(cfg.type, "ASSERT")) {
 		err = dump_assert_logs(dev, cfg);
 		if (err == 0)
@@ -626,32 +592,14 @@ int solidigm_get_internal_log(int argc, char **argv, struct command *command,
 			perror("Error retrieving Telemetry Host Initiated");
 	}
 
-	if (log_count > 0) {
-		int ret_cmd;
-		char cmd[ARG_MAX];
-		char *where_err = cfg.verbose ? "" : ">/dev/null 2>&1";
-
-		snprintf(zip_name, sizeof(zip_name), "%s.zip", cfg.dir_prefix);
-		snprintf(cmd, sizeof(cmd), "cd \"%s\" && zip -r \"../%s\" ./* %s", cfg.dir_prefix,
-			 zip_name, where_err);
-		printf("Compressing logs to %s\n", zip_name);
-		ret_cmd = system(cmd);
-		if (ret_cmd == -1)
-			perror(cmd);
-		else {
-			output_path = zip_name;
-			snprintf(cmd, sizeof(cmd), "rm -rf %s", cfg.dir_prefix);
-			printf("Removing %s\n", cfg.dir_prefix);
-			if (system(cmd) != 0)
-				perror("Failed removing logs folder");
-		}
-	}
-
 	if (log_count == 0) {
 		if (err > 0)
 			nvme_show_status(err);
 	} else if ((log_count > 1) || cfg.verbose)
-		printf("Total: %d log files in %s\n", log_count, output_path);
-
+		printf("Total: %d log files with prefix: %s\n", log_count, cfg.file_prefix);
+out_dev:
+	/* Redundant close() to make static code analysis happy */
+	close(dev->direct.fd);
+	dev_close(dev);
 	return err;
 }

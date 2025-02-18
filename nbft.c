@@ -5,12 +5,10 @@
 #include <fnmatch.h>
 #include <stdlib.h>
 
-#include <libnvme.h>
-
 #include "nvme.h"
 #include "nbft.h"
+#include "libnvme.h"
 #include "fabrics.h"
-#include "nvme-print.h"
 
 #include "util/types.h"
 
@@ -49,8 +47,10 @@ int read_nbft_files(struct list_head *nbft_list, char *path)
 	struct nbft_info *nbft;
 
 	count = scandir(path, &dent, nbft_filter, NULL);
-	if (count < 0)
-		return -errno;
+	if (count < 0) {
+		fprintf(stderr, "Failed to open %s.\n", path);
+		return -1;
+	}
 
 	for (i = 0; i < count; i++) {
 		snprintf(filename, sizeof(filename), "%s/%s", path, dent[i]->d_name);
@@ -97,11 +97,8 @@ int discover_from_nbft(nvme_root_t r, char *hostnqn_arg, char *hostid_arg,
 
 	list_head_init(&nbft_list);
 	ret = read_nbft_files(&nbft_list, nbft_path);
-	if (ret) {
-		if (ret != ENOENT)
-			nvme_show_perror("Failed to access ACPI tables directory");
+	if (ret)
 		goto out_free_2;
-	}
 
 	list_for_each(&nbft_list, entry, node)
 		for (ss = entry->nbft->subsystem_ns_list; ss && *ss; ss++)
@@ -167,7 +164,7 @@ int discover_from_nbft(nvme_root_t r, char *hostnqn_arg, char *hostid_arg,
 				 * obtains a different local IP address than the
 				 * firmware had. Retry without host_traddr.
 				 */
-				if (ret == -1 && errno == ENVME_CONNECT_ADDRNOTAVAIL &&
+				if (ret == -1 && errno == ENVME_CONNECT_WRITE &&
 				    !strcmp((*ss)->transport, "tcp") &&
 				    strlen(hfi->tcp_info.dhcp_server_ipaddr) > 0) {
 					nvme_free_ctrl(c);

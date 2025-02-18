@@ -19,12 +19,12 @@ Writes and shows the defined NVMe controller property for NVMe over Fabric.
 
 OPTIONS
 -------
--O <offset>::
---offset=<offset>::
+-O::
+--offset::
 	The offset of the property.
 
--V <val>::
---value=<val>::
+-V::
+--value:
 	The value of the property to be set.
 
 -o <fmt>::

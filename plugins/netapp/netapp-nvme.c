@@ -46,14 +46,12 @@ enum {
 enum {
 	ONTAP_C2_LOG_SUPPORTED_LSP	= 0x0,
 	ONTAP_C2_LOG_NSINFO_LSP		= 0x1,
-	ONTAP_C2_LOG_PLATFORM_LSP	= 0x2,
 };
 
 enum {
-	ONTAP_VSERVER_NAME_TLV		= 0x11,
-	ONTAP_VOLUME_NAME_TLV		= 0x12,
-	ONTAP_NS_NAME_TLV		= 0x13,
-	ONTAP_NS_PATH_TLV		= 0x14,
+	ONTAP_VSERVER_TLV		= 0x11,
+	ONTAP_VOLUME_TLV		= 0x12,
+	ONTAP_NS_TLV			= 0x13,
 };
 
 static const char *dev_path = "/dev/";
@@ -136,10 +134,8 @@ static void netapp_get_ontap_labels(char *vsname, char *nspath,
 		unsigned char *log_data)
 {
 	int lsp, tlv, label_len;
-	char *vserver_name, *volume_name, *namespace_name, *namespace_path;
+	char *vserver_name, *volume_name, *namespace_name;
 	char vol_name[ONTAP_LABEL_LEN], ns_name[ONTAP_LABEL_LEN];
-	char ns_path[ONTAP_LABEL_LEN];
-	bool nspath_tlv_available = false;
 	const char *ontap_vol = "/vol/";
 	int i, j;
 
@@ -149,9 +145,9 @@ static void netapp_get_ontap_labels(char *vsname, char *nspath,
 		/* lsp not related to nsinfo */
 		return;
 
-	/* get the vserver name tlv */
+	/* get the vserver tlv and name */
 	tlv = *(__u8 *)&log_data[32];
-	if (tlv == ONTAP_VSERVER_NAME_TLV) {
+	if (tlv == ONTAP_VSERVER_TLV) {
 		label_len = (*(__u16 *)&log_data[34]) * 4;
 		vserver_name = (char *)&log_data[36];
 		ontap_labels_to_str(vsname, vserver_name, label_len);
@@ -163,9 +159,9 @@ static void netapp_get_ontap_labels(char *vsname, char *nspath,
 
 	i = 36 + label_len;
 	j = i + 2;
-	/* get the volume name tlv */
+	/* get the volume tlv and name */
 	tlv = *(__u8 *)&log_data[i];
-	if (tlv == ONTAP_VOLUME_NAME_TLV) {
+	if (tlv == ONTAP_VOLUME_TLV) {
 		label_len = (*(__u16 *)&log_data[j]) * 4;
 		volume_name = (char *)&log_data[j + 2];
 		ontap_labels_to_str(vol_name, volume_name, label_len);
@@ -177,9 +173,9 @@ static void netapp_get_ontap_labels(char *vsname, char *nspath,
 
 	i += 4 + label_len;
 	j += 4 + label_len;
-	/* get the namespace name tlv */
+	/* get the namespace tlv and name */
 	tlv = *(__u8 *)&log_data[i];
-	if (tlv == ONTAP_NS_NAME_TLV) {
+	if (tlv == ONTAP_NS_TLV) {
 		label_len = (*(__u16 *)&log_data[j]) * 4;
 		namespace_name = (char *)&log_data[j + 2];
 		ontap_labels_to_str(ns_name, namespace_name, label_len);
@@ -189,25 +185,8 @@ static void netapp_get_ontap_labels(char *vsname, char *nspath,
 		return;
 	}
 
-	i += 4 + label_len;
-	j += 4 + label_len;
-	/* get the namespace path tlv if available */
-	tlv = *(__u8 *)&log_data[i];
-	if (tlv == ONTAP_NS_PATH_TLV) {
-		nspath_tlv_available = true;
-		label_len = (*(__u16 *)&log_data[j]) * 4;
-		namespace_path = (char *)&log_data[j + 2];
-		ontap_labels_to_str(ns_path, namespace_path, label_len);
-	}
-
-	if (nspath_tlv_available) {
-		/* set nspath from the corresponding ns_path string */
-		snprintf(nspath, ONTAP_NS_PATHLEN, "%s", ns_path);
-	} else {
-		/* set nspath by concatenating ontap_vol with ns_name */
-		snprintf(nspath, ONTAP_NS_PATHLEN, "%s%s%s%s", ontap_vol,
+	snprintf(nspath, ONTAP_NS_PATHLEN, "%s%s%s%s", ontap_vol,
 			vol_name, "/", ns_name);
-	}
 }
 
 static void netapp_smdevice_json(struct json_object *devices, char *devname,
